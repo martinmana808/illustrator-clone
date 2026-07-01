@@ -1,4 +1,5 @@
 import { defineConfig } from "vitest/config";
+import { fileURLToPath } from "node:url";
 
 export default defineConfig({
   test: {
@@ -8,5 +9,11 @@ export default defineConfig({
     environment: "jsdom",
     include: ["src/**/*.test.ts"],
     setupFiles: ["./src/test/setup-paper-dom.ts"],
+  },
+  resolve: {
+    alias: {
+      // Match the tsconfig "@/*" -> "src/*" path alias for tests.
+      "@": fileURLToPath(new URL("./src", import.meta.url)),
+    },
   },
 });
