@@ -2,7 +2,8 @@
 
 import { useEffect, useRef } from "react";
 import { attachToCanvas } from "@/engine/browser";
-import { addRectangle } from "@/engine/document";
+import { installTools } from "@/tools/useActiveTool";
+import { editorStore } from "@/state/store";
 
 const W = 900;
 const H = 600;
@@ -14,16 +15,26 @@ export function ArtboardCanvas() {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const doc = attachToCanvas(canvas, W, H);
-    // Demo content to prove rendering works; removed once tools land.
-    const rect = addRectangle(doc, 60, 60, 200, 140);
-    rect.fillColor = new doc.scope.Color(0.85, 0.9, 1);
-    rect.strokeColor = new doc.scope.Color(0.1, 0.2, 0.4);
-    rect.strokeWidth = 2;
+    const uninstall = installTools(doc);
     doc.scope.view.update();
     return () => {
+      uninstall();
       doc.scope.project.clear();
       doc.scope.view.remove();
     };
+  }, []);
+
+  // Keyboard tool shortcuts (V / A / P), matching Illustrator.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement) return;
+      const k = e.key.toLowerCase();
+      if (k === "v") editorStore.getState().setTool("select");
+      if (k === "a") editorStore.getState().setTool("direct-select");
+      if (k === "p") editorStore.getState().setTool("pen");
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, []);
 
   return (
@@ -32,7 +43,6 @@ export function ArtboardCanvas() {
       width={W}
       height={H}
       className="artboard"
-      // Paper.js manages the pixel ratio; fixed CSS size keeps 1:1 for now.
       style={{ width: W, height: H }}
     />
   );
