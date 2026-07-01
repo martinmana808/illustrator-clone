@@ -35,6 +35,7 @@ export interface ToolController {
   save(): void;
   open(json: string): void;
   typeKey(key: string): void;
+  caretMove(dir: -1 | 1): void;
   setTextContent(s: string): void;
   finishTyping(): void;
   isTyping(): boolean;

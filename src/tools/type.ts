@@ -14,9 +14,24 @@ const DEFAULT_FONT = "sans-serif";
 export class TypeTool {
   private doc: EditorDoc;
   private editingText: paper.PointText | null = null;
+  private caretIndex = 0;
 
   constructor(doc: EditorDoc) {
     this.doc = doc;
+  }
+
+  /** Insertion-point index within the editing text's content. */
+  get caret(): number {
+    return this.caretIndex;
+  }
+
+  setCaret(i: number): void {
+    const len = this.editingText ? this.editingText.content.length : 0;
+    this.caretIndex = Math.max(0, Math.min(i, len));
+  }
+
+  moveCaret(dir: -1 | 1): void {
+    this.setCaret(this.caretIndex + dir);
   }
 
   private pt(p: Vec): paper.Point {
@@ -42,6 +57,7 @@ export class TypeTool {
     });
     if (hit && hit.item && hit.item.className === "PointText") {
       this.editingText = hit.item as paper.PointText;
+      this.caretIndex = this.editingText.content.length; // caret at end
       return;
     }
 
@@ -53,18 +69,32 @@ export class TypeTool {
     });
     t.fillColor = new this.doc.scope.Color(0, 0, 0);
     this.editingText = t;
+    this.caretIndex = 0;
   }
 
   keyInput(key: string): void {
     const t = this.editingText;
     if (!t) return;
-    if (key === "Backspace") t.content = t.content.slice(0, -1);
-    else if (key === "Enter") t.content = t.content + "\n";
-    else if (key.length === 1) t.content = t.content + key;
+    const c = this.caretIndex;
+    if (key === "Backspace") {
+      if (c > 0) {
+        t.content = t.content.slice(0, c - 1) + t.content.slice(c);
+        this.caretIndex = c - 1;
+      }
+    } else {
+      const ch = key === "Enter" ? "\n" : key.length === 1 ? key : "";
+      if (ch) {
+        t.content = t.content.slice(0, c) + ch + t.content.slice(c);
+        this.caretIndex = c + 1;
+      }
+    }
   }
 
   setContent(s: string): void {
-    if (this.editingText) this.editingText.content = s;
+    if (this.editingText) {
+      this.editingText.content = s;
+      this.setCaret(s.length);
+    }
   }
 
   setFontSize(n: number): void {
@@ -80,5 +110,6 @@ export class TypeTool {
       this.editingText.remove();
     }
     this.editingText = null;
+    this.caretIndex = 0;
   }
 }

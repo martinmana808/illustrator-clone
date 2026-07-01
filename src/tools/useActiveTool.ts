@@ -64,8 +64,42 @@ export function installTools(doc: EditorDoc): ToolController {
     overlays = [];
   }
 
+  let caretVisible = true;
+
+  function drawTextCaret() {
+    const t = type.editing;
+    if (!t || !caretVisible) return;
+    const upto = t.content.slice(0, type.caret);
+    const nl = upto.lastIndexOf("\n");
+    const lineText = nl >= 0 ? upto.slice(nl + 1) : upto;
+    const lineIndex = (upto.match(/\n/g) || []).length;
+    const fontSize = t.fontSize as number;
+    let w = 0;
+    const el = scope.view.element as HTMLCanvasElement | undefined;
+    const ctx = el?.getContext?.("2d");
+    if (ctx) {
+      ctx.font = `${fontSize}px ${t.fontFamily}`;
+      w = ctx.measureText(lineText).width;
+    }
+    const lineHeight = (t.leading as number) || fontSize * 1.2;
+    const x = t.point.x + w;
+    const baseY = t.point.y + lineIndex * lineHeight;
+    const caret = new scope.Path.Line(
+      new scope.Point(x, baseY - fontSize),
+      new scope.Point(x, baseY + fontSize * 0.25)
+    );
+    caret.strokeColor = new scope.Color(0, 0, 0);
+    caret.strokeWidth = 1;
+    overlays.push(caret);
+  }
+
   function drawOverlays() {
     stripOverlays();
+    if (active() === "type") {
+      if (type.isEditing) drawTextCaret();
+      scope.view.update();
+      return;
+    }
     if (active() === "pen") {
       const p = pen.previewPoint;
       const path = pen.currentPath;
@@ -208,10 +242,19 @@ export function installTools(doc: EditorDoc): ToolController {
     }
   });
 
+  // Blink the text caret while editing.
+  const blink = setInterval(() => {
+    if (active() === "type" && type.isEditing) {
+      caretVisible = !caretVisible;
+      drawOverlays();
+    }
+  }, 530);
+
   tool.activate();
   return {
     teardown: () => {
       unsubTool();
+      clearInterval(blink);
       stripOverlays();
       tool.remove();
       listeners.clear();
@@ -269,12 +312,19 @@ export function installTools(doc: EditorDoc): ToolController {
     },
     typeKey: (key) => {
       type.keyInput(key);
-      scope.view.update();
+      caretVisible = true;
+      drawOverlays();
       emit();
+    },
+    caretMove: (dir) => {
+      type.moveCaret(dir);
+      caretVisible = true;
+      drawOverlays();
     },
     setTextContent: (s) => {
       type.setContent(s);
-      scope.view.update();
+      caretVisible = true;
+      drawOverlays();
       emit();
     },
     finishTyping: () => {
@@ -285,12 +335,12 @@ export function installTools(doc: EditorDoc): ToolController {
     isTyping: () => type.isEditing,
     setFontSize: (n) => {
       type.setFontSize(n);
-      scope.view.update();
+      drawOverlays();
       emit();
     },
     setFontFamily: (f) => {
       type.setFontFamily(f);
-      scope.view.update();
+      drawOverlays();
       emit();
     },
     readText: () => {

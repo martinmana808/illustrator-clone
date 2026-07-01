@@ -42,6 +42,16 @@ export function ArtboardCanvas() {
           return;
         }
         if (e.metaKey || e.ctrlKey || e.altKey) return;
+        if (key === "ArrowLeft") {
+          c.caretMove(-1);
+          e.preventDefault();
+          return;
+        }
+        if (key === "ArrowRight") {
+          c.caretMove(1);
+          e.preventDefault();
+          return;
+        }
         if (key.length === 1 || key === "Backspace" || key === "Enter") {
           c.typeKey(key);
           e.preventDefault();

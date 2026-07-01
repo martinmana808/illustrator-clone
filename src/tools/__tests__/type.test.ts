@@ -70,6 +70,54 @@ describe("TypeTool", () => {
     expect(t.editing).toBeNull();
   });
 
+  it("caret starts at 0 and advances as you type", () => {
+    const doc = createDocument(300, 300);
+    const t = new TypeTool(doc);
+    t.pointerDown({ x: 20, y: 50 });
+    expect(t.caret).toBe(0);
+    t.keyInput("A");
+    t.keyInput("B");
+    expect(t.caret).toBe(2);
+  });
+
+  it("inserts at the caret after moving it left", () => {
+    const doc = createDocument(300, 300);
+    const t = new TypeTool(doc);
+    t.pointerDown({ x: 20, y: 50 });
+    t.keyInput("A");
+    t.keyInput("B");
+    t.moveCaret(-1); // caret between A and B
+    t.keyInput("X");
+    expect(t.editing!.content).toBe("AXB");
+    expect(t.caret).toBe(2);
+  });
+
+  it("Backspace deletes the character before the caret (middle)", () => {
+    const doc = createDocument(300, 300);
+    const t = new TypeTool(doc);
+    t.pointerDown({ x: 20, y: 50 });
+    t.keyInput("A");
+    t.keyInput("B");
+    t.keyInput("C");
+    t.moveCaret(-1); // caret between B and C
+    t.keyInput("Backspace"); // removes B
+    expect(t.editing!.content).toBe("AC");
+    expect(t.caret).toBe(1);
+  });
+
+  it("caret clamps within bounds", () => {
+    const doc = createDocument(300, 300);
+    const t = new TypeTool(doc);
+    t.pointerDown({ x: 20, y: 50 });
+    t.keyInput("A");
+    t.moveCaret(-1);
+    t.moveCaret(-1); // clamp at 0
+    expect(t.caret).toBe(0);
+    t.moveCaret(1);
+    t.moveCaret(1); // clamp at length 1
+    expect(t.caret).toBe(1);
+  });
+
   it("text exports to SVG", () => {
     const doc = createDocument(300, 300);
     const t = new TypeTool(doc);
