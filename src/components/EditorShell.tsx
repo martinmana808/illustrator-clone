@@ -2,7 +2,10 @@
 
 import dynamic from "next/dynamic";
 import { Toolbar } from "./Toolbar";
+import { StylePanel } from "./StylePanel";
+import { LayersPanel } from "./LayersPanel";
 import { PathfinderPanel } from "./PathfinderPanel";
+import { ExportBar } from "./ExportBar";
 
 // Paper.js only works in the browser (it needs a real <canvas>). Loading it on
 // the server makes it pull in jsdom and fail. Disabling SSR for the artboard
@@ -19,7 +22,12 @@ export function EditorShell() {
       <div className="stage">
         <ArtboardCanvas />
       </div>
-      <PathfinderPanel />
+      <div className="rail">
+        <StylePanel />
+        <LayersPanel />
+        <PathfinderPanel />
+        <ExportBar />
+      </div>
     </main>
   );
 }

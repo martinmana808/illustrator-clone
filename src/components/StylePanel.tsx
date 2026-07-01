@@ -1,0 +1,80 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { editorStore, useEditorStore } from "@/state/store";
+
+export function StylePanel() {
+  const count = useEditorStore((s) => s.selectionCount);
+  const controller = useEditorStore((s) => s.controller);
+  const [fill, setFill] = useState("#cccccc");
+  const [stroke, setStroke] = useState("#000000");
+  const [width, setWidth] = useState(1);
+
+  useEffect(() => {
+    if (!controller) return;
+    const sync = () => {
+      const s = controller.readSelectionStyle();
+      if (s.fill) setFill(s.fill);
+      if (s.stroke) setStroke(s.stroke);
+      if (s.strokeWidth != null) setWidth(s.strokeWidth);
+    };
+    sync();
+    return controller.onChange(sync);
+  }, [controller, count]);
+
+  const disabled = count < 1;
+  const c = () => editorStore.getState().controller;
+
+  return (
+    <div className="panel">
+      <div className="panel-title">Appearance</div>
+      <label className="style-row">
+        <span>Fill</span>
+        <input
+          type="color"
+          value={fill}
+          disabled={disabled}
+          onChange={(e) => {
+            setFill(e.target.value);
+            c()?.setFill(e.target.value);
+          }}
+        />
+        <button className="mini" disabled={disabled} onClick={() => c()?.setFill(null)}>
+          none
+        </button>
+      </label>
+      <label className="style-row">
+        <span>Stroke</span>
+        <input
+          type="color"
+          value={stroke}
+          disabled={disabled}
+          onChange={(e) => {
+            setStroke(e.target.value);
+            c()?.setStroke(e.target.value);
+          }}
+        />
+        <button className="mini" disabled={disabled} onClick={() => c()?.setStroke(null)}>
+          none
+        </button>
+      </label>
+      <label className="style-row">
+        <span>Weight</span>
+        <input
+          type="range"
+          min={0}
+          max={20}
+          step={0.5}
+          value={width}
+          disabled={disabled}
+          onChange={(e) => {
+            const w = Number(e.target.value);
+            setWidth(w);
+            c()?.setStrokeWidth(w);
+          }}
+        />
+        <span className="mono">{width}</span>
+      </label>
+    </div>
+  );
+}
