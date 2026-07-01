@@ -2,6 +2,7 @@ import type paper from "paper";
 import type { EditorDoc } from "@/engine/document";
 import { PenTool } from "./pen";
 import { SelectTool } from "./select";
+import { DirectSelectTool } from "./directSelect";
 import type { Modifiers, Vec, ToolController } from "./types";
 import { editorStore } from "@/state/store";
 import { applyPathfinder, type PathfinderOp, type PItem } from "@/engine/pathfinder";
@@ -39,6 +40,7 @@ export function installTools(doc: EditorDoc): ToolController {
   scope.activate();
   const pen = new PenTool(doc);
   const select = new SelectTool(doc);
+  const directSelect = new DirectSelectTool(doc);
   const tool = new scope.Tool();
   let overlay: paper.Path | null = null;
 
@@ -78,6 +80,9 @@ export function installTools(doc: EditorDoc): ToolController {
       select.pointerDown(vec(e.point), mods(e));
       scope.view.update();
       syncSelection();
+    } else if (active() === "direct-select") {
+      directSelect.pointerDown(vec(e.point), mods(e));
+      scope.view.update();
     }
   };
   tool.onMouseDrag = (e: paper.ToolEvent) => {
@@ -86,6 +91,9 @@ export function installTools(doc: EditorDoc): ToolController {
       scope.view.update();
     } else if (active() === "select") {
       select.pointerDrag(vec(e.point), mods(e));
+      scope.view.update();
+    } else if (active() === "direct-select") {
+      directSelect.pointerDrag(vec(e.point), mods(e));
       scope.view.update();
     }
   };
@@ -96,6 +104,9 @@ export function installTools(doc: EditorDoc): ToolController {
       select.pointerUp(vec(e.point), mods(e));
       scope.view.update();
       syncSelection();
+    } else if (active() === "direct-select") {
+      directSelect.pointerUp(vec(e.point), mods(e));
+      scope.view.update();
     }
   };
   tool.onMouseMove = (e: paper.ToolEvent) => {
