@@ -63,3 +63,44 @@ describe("SelectTool", () => {
     expect(doc.project.activeLayer.children.length).toBe(0);
   });
 });
+
+describe("SelectTool transforms", () => {
+  it("dragging a selected item moves it", () => {
+    const doc = createDocument(400, 400);
+    const r = rect(doc, 50, 50, 40, 40) as unknown as paper.Path;
+    const sel = new SelectTool(doc);
+    sel.pointerDown({ x: 60, y: 60 }); // selects + move mode
+    sel.pointerDrag({ x: 80, y: 80 });
+    sel.pointerUp({ x: 80, y: 80 });
+    expect(r.bounds.left).toBeCloseTo(70, 3);
+    expect(r.bounds.top).toBeCloseTo(70, 3);
+  });
+
+  it("dragging the SE handle scales the selection", () => {
+    const doc = createDocument(400, 400);
+    const r = rect(doc, 50, 50, 100, 100) as unknown as paper.Path;
+    const sel = new SelectTool(doc);
+    sel.pointerDown({ x: 100, y: 100 }); // select
+    sel.pointerUp({ x: 100, y: 100 });
+    sel.pointerDown({ x: 150, y: 150 }); // SE handle
+    sel.pointerDrag({ x: 200, y: 200 }); // scale 1.5x about NW pivot (50,50)
+    sel.pointerUp({ x: 200, y: 200 });
+    expect(r.bounds.width).toBeCloseTo(150, 2);
+    expect(r.bounds.left).toBeCloseTo(50, 2); // pivot stays put
+  });
+
+  it("dragging the rotation ring rotates the selection", () => {
+    const doc = createDocument(400, 400);
+    const r = rect(doc, 50, 50, 100, 60) as unknown as paper.Path;
+    const sel = new SelectTool(doc);
+    sel.pointerDown({ x: 100, y: 80 }); // select
+    sel.pointerUp({ x: 100, y: 80 });
+    const before = { x: r.segments[0].point.x, y: r.segments[0].point.y };
+    sel.pointerDown({ x: 36, y: 36 }); // rotation ring near NW corner
+    sel.pointerDrag({ x: 36, y: 90 });
+    sel.pointerUp({ x: 36, y: 90 });
+    const after = { x: r.segments[0].point.x, y: r.segments[0].point.y };
+    const moved = Math.hypot(after.x - before.x, after.y - before.y);
+    expect(moved).toBeGreaterThan(1); // a rotation actually happened
+  });
+});

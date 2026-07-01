@@ -4,6 +4,7 @@ import { PenTool } from "./pen";
 import { SelectTool } from "./select";
 import { DirectSelectTool } from "./directSelect";
 import { TypeTool } from "./type";
+import { handlePoints } from "./transformBox";
 import type { Modifiers, Vec, ToolController } from "./types";
 import { editorStore } from "@/state/store";
 import { applyPathfinder, type PathfinderOp, type PItem } from "@/engine/pathfinder";
@@ -46,69 +47,100 @@ export function installTools(doc: EditorDoc): ToolController {
   const directSelect = new DirectSelectTool(doc);
   const type = new TypeTool(doc);
   const tool = new scope.Tool();
-  let overlay: paper.Path | null = null;
+
+  // UI overlays (pen rubber-band, selection box + handles). These live in the
+  // project so they render, but must NEVER be serialized — stripOverlays() is
+  // called before every history capture / export, then overlays are redrawn.
+  let overlays: paper.Item[] = [];
 
   const active = () => editorStore.getState().activeTool;
   const listeners = new Set<() => void>();
   const emit = () => listeners.forEach((cb) => cb());
   const sel = () => select.selection;
   const history = new History(doc);
+
+  function stripOverlays() {
+    overlays.forEach((o) => o.remove());
+    overlays = [];
+  }
+
+  function drawOverlays() {
+    stripOverlays();
+    if (active() === "pen") {
+      const p = pen.previewPoint;
+      const path = pen.currentPath;
+      if (p && path && path.lastSegment) {
+        overlays.push(
+          new scope.Path({
+            segments: [path.lastSegment.point, new scope.Point(p.x, p.y)],
+            strokeColor: new scope.Color(0.4, 0.4, 0.9),
+            dashArray: [4, 4],
+          })
+        );
+      }
+    } else if (active() === "select") {
+      const b = select.selectionBounds();
+      if (b) {
+        const box = new scope.Path.Rectangle({ point: [b.x, b.y], size: [b.width, b.height] });
+        box.strokeColor = new scope.Color(0.2, 0.5, 1);
+        box.strokeWidth = 1;
+        box.dashArray = [4, 3];
+        overlays.push(box);
+        for (const h of handlePoints(b)) {
+          const s = new scope.Path.Rectangle({ point: [h.x - 3, h.y - 3], size: [6, 6] });
+          s.fillColor = new scope.Color(1, 1, 1);
+          s.strokeColor = new scope.Color(0.2, 0.5, 1);
+          s.strokeWidth = 1;
+          overlays.push(s);
+        }
+      }
+    }
+    scope.view.update();
+  }
+
+  /** Run a serialization-sensitive action with overlays stripped, then redraw. */
+  function withoutOverlays<T>(fn: () => T): T {
+    stripOverlays();
+    const r = fn();
+    drawOverlays();
+    return r;
+  }
+
   const commit = () => {
+    stripOverlays();
     history.capture();
     emit();
+    drawOverlays();
   };
   const syncSelection = () => {
     editorStore.getState().setSelectionCount(select.selection.length);
     emit();
   };
 
-  function drawPreview() {
-    if (overlay) {
-      overlay.remove();
-      overlay = null;
-    }
-    if (active() === "pen") {
-      const p = pen.previewPoint;
-      const path = pen.currentPath;
-      if (p && path && path.lastSegment) {
-        overlay = new scope.Path({
-          segments: [path.lastSegment.point, new scope.Point(p.x, p.y)],
-          strokeColor: new scope.Color(0.4, 0.4, 0.9),
-          dashArray: [4, 4],
-        });
-      }
-    }
-    scope.view.update();
-  }
-
   tool.onMouseDown = (e: paper.ToolEvent) => {
+    stripOverlays(); // hit-test only real content
     if (active() === "pen") {
       pen.pointerDown(vec(e.point), mods(e));
-      drawPreview();
     } else if (active() === "select") {
       select.pointerDown(vec(e.point), mods(e));
-      scope.view.update();
       syncSelection();
     } else if (active() === "direct-select") {
       directSelect.pointerDown(vec(e.point), mods(e));
-      scope.view.update();
     } else if (active() === "type") {
       type.pointerDown(vec(e.point), mods(e));
-      scope.view.update();
       emit();
     }
+    drawOverlays();
   };
   tool.onMouseDrag = (e: paper.ToolEvent) => {
     if (active() === "pen") {
       pen.pointerDrag(vec(e.point), mods(e));
-      scope.view.update();
     } else if (active() === "select") {
       select.pointerDrag(vec(e.point), mods(e));
-      scope.view.update();
     } else if (active() === "direct-select") {
       directSelect.pointerDrag(vec(e.point), mods(e));
-      scope.view.update();
     }
+    drawOverlays();
   };
   tool.onMouseUp = (e: paper.ToolEvent) => {
     if (active() === "pen") {
@@ -116,25 +148,24 @@ export function installTools(doc: EditorDoc): ToolController {
       commit();
     } else if (active() === "select") {
       select.pointerUp(vec(e.point), mods(e));
-      scope.view.update();
       syncSelection();
       commit();
     } else if (active() === "direct-select") {
       directSelect.pointerUp(vec(e.point), mods(e));
-      scope.view.update();
       commit();
     }
+    drawOverlays();
   };
   tool.onMouseMove = (e: paper.ToolEvent) => {
     if (active() === "pen") {
       pen.pointerMove(vec(e.point), mods(e));
-      drawPreview();
+      drawOverlays();
     }
   };
   tool.onKeyDown = (e: paper.KeyEvent) => {
     if (active() === "pen" && (e.key === "enter" || e.key === "escape")) {
       pen.finish();
-      drawPreview();
+      drawOverlays();
     }
     if (active() === "select" && (e.key === "delete" || e.key === "backspace")) {
       select.deleteSelection();
@@ -149,6 +180,7 @@ export function installTools(doc: EditorDoc): ToolController {
       (it) => typeof (it as unknown as PItem).unite === "function"
     ) as unknown as PItem[];
     if (items.length < 1) return;
+    stripOverlays();
     const result = applyPathfinder(op, items);
     items.forEach((it) => (it as unknown as paper.Item).remove());
     result.forEach((r) => {
@@ -161,15 +193,26 @@ export function installTools(doc: EditorDoc): ToolController {
   }
 
   const afterRestore = () => {
-    scope.view.update();
     editorStore.getState().setSelectionCount(select.selection.length);
     emit();
+    drawOverlays();
   };
+
+  // Redraw overlays when the active tool changes (e.g. show/hide the box).
+  let lastTool = active();
+  const unsubTool = editorStore.subscribe(() => {
+    const t = editorStore.getState().activeTool;
+    if (t !== lastTool) {
+      lastTool = t;
+      drawOverlays();
+    }
+  });
 
   tool.activate();
   return {
     teardown: () => {
-      if (overlay) overlay.remove();
+      unsubTool();
+      stripOverlays();
       tool.remove();
       listeners.clear();
     },
@@ -216,9 +259,9 @@ export function installTools(doc: EditorDoc): ToolController {
       scope.view.update();
       commit();
     },
-    exportSVG: () => downloadSVG(doc),
-    exportPNG: () => downloadPNG(doc),
-    save: () => downloadDocument(doc),
+    exportSVG: () => withoutOverlays(() => downloadSVG(doc)),
+    exportPNG: () => withoutOverlays(() => downloadPNG(doc)),
+    save: () => withoutOverlays(() => downloadDocument(doc)),
     open: (json) => {
       loadDocument(doc, json);
       history.capture();
