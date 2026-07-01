@@ -34,8 +34,9 @@ export function ArtboardCanvas() {
       const key = e.key;
       const k = key.toLowerCase();
 
-      // While actively typing, keystrokes go into the text object.
-      if (editorStore.getState().activeTool === "type" && c?.isTyping()) {
+      // While actively typing (point text or text-on-path), keystrokes go into it.
+      const t0 = editorStore.getState().activeTool;
+      if ((t0 === "type" || t0 === "type-on-path") && c?.isTyping()) {
         if (key === "Escape") {
           c.finishTyping();
           e.preventDefault();

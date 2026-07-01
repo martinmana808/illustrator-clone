@@ -4,6 +4,7 @@ import { PenTool } from "./pen";
 import { SelectTool } from "./select";
 import { DirectSelectTool } from "./directSelect";
 import { TypeTool } from "./type";
+import { TypeOnPathTool } from "./typeOnPath";
 import { handlePoints } from "./transformBox";
 import type { Modifiers, Vec, ToolController } from "./types";
 import { editorStore } from "@/state/store";
@@ -46,6 +47,7 @@ export function installTools(doc: EditorDoc): ToolController {
   const select = new SelectTool(doc);
   const directSelect = new DirectSelectTool(doc);
   const type = new TypeTool(doc);
+  const typeOnPath = new TypeOnPathTool(doc);
   const tool = new scope.Tool();
 
   // UI overlays (pen rubber-band, selection box + handles). These live in the
@@ -163,6 +165,9 @@ export function installTools(doc: EditorDoc): ToolController {
     } else if (active() === "type") {
       type.pointerDown(vec(e.point), mods(e));
       emit();
+    } else if (active() === "type-on-path") {
+      typeOnPath.pointerDown(vec(e.point), mods(e));
+      commit();
     }
     drawOverlays();
   };
@@ -311,7 +316,8 @@ export function installTools(doc: EditorDoc): ToolController {
       afterRestore();
     },
     typeKey: (key) => {
-      type.keyInput(key);
+      if (active() === "type-on-path") typeOnPath.keyInput(key);
+      else type.keyInput(key);
       caretVisible = true;
       drawOverlays();
       emit();
@@ -328,11 +334,12 @@ export function installTools(doc: EditorDoc): ToolController {
       emit();
     },
     finishTyping: () => {
-      type.finish();
+      if (active() === "type-on-path") typeOnPath.finish();
+      else type.finish();
       scope.view.update();
       commit();
     },
-    isTyping: () => type.isEditing,
+    isTyping: () => (active() === "type-on-path" ? typeOnPath.isEditing : type.isEditing),
     setFontSize: (n) => {
       type.setFontSize(n);
       drawOverlays();

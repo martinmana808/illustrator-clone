@@ -8,6 +8,7 @@ const TOOLS: { id: ToolId; label: string; key: string }[] = [
   { id: "direct-select", label: "Direct Select", key: "A" },
   { id: "pen", label: "Pen", key: "P" },
   { id: "type", label: "Type", key: "T" },
+  { id: "type-on-path", label: "Type on Path", key: "" },
 ];
 
 export function Toolbar() {
@@ -21,7 +22,7 @@ export function Toolbar() {
           key={t.id}
           className={activeTool === t.id ? "tool active" : "tool"}
           onClick={() => setTool(t.id)}
-          title={`${t.label} (${t.key})`}
+          title={t.key ? `${t.label} (${t.key})` : t.label}
         >
           {t.label}
         </button>

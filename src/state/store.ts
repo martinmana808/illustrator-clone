@@ -2,7 +2,7 @@ import { createStore } from "zustand/vanilla";
 import { useStore } from "zustand";
 import type { ToolController } from "@/tools/types";
 
-export type ToolId = "select" | "direct-select" | "pen" | "type";
+export type ToolId = "select" | "direct-select" | "pen" | "type" | "type-on-path";
 
 export interface EditorState {
   activeTool: ToolId;
