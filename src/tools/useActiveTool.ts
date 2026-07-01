@@ -17,6 +17,7 @@ import {
 } from "@/engine/layers";
 import { downloadSVG, downloadPNG } from "@/engine/export";
 import { History } from "@/engine/history";
+import { downloadDocument, loadDocument } from "@/engine/persist";
 
 function mods(event: paper.ToolEvent | paper.KeyEvent): Modifiers {
   const k = (event.modifiers ?? {}) as Record<string, boolean>;
@@ -211,6 +212,12 @@ export function installTools(doc: EditorDoc): ToolController {
     },
     exportSVG: () => downloadSVG(doc),
     exportPNG: () => downloadPNG(doc),
+    save: () => downloadDocument(doc),
+    open: (json) => {
+      loadDocument(doc, json);
+      history.capture();
+      afterRestore();
+    },
     undo: () => {
       if (history.undo()) afterRestore();
     },

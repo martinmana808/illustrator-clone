@@ -7,6 +7,7 @@ import { StylePanel } from "./StylePanel";
 import { LayersPanel } from "./LayersPanel";
 import { PathfinderPanel } from "./PathfinderPanel";
 import { ExportBar } from "./ExportBar";
+import { DocBar } from "./DocBar";
 
 // Paper.js only works in the browser (it needs a real <canvas>). Loading it on
 // the server makes it pull in jsdom and fail. Disabling SSR for the artboard
@@ -28,6 +29,7 @@ export function EditorShell() {
         <StylePanel />
         <LayersPanel />
         <PathfinderPanel />
+        <DocBar />
         <ExportBar />
       </div>
     </main>
