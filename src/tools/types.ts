@@ -34,6 +34,13 @@ export interface ToolController {
   exportPNG(): void;
   save(): void;
   open(json: string): void;
+  typeKey(key: string): void;
+  setTextContent(s: string): void;
+  finishTyping(): void;
+  isTyping(): boolean;
+  setFontSize(n: number): void;
+  setFontFamily(f: string): void;
+  readText(): { content: string; fontSize: number; fontFamily: string } | null;
   undo(): void;
   redo(): void;
   canUndo(): boolean;

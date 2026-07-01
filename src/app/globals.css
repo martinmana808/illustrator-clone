@@ -200,6 +200,28 @@ a {
   text-align: right;
 }
 
+/* --- Type panel --- */
+.type-content {
+  width: 100%;
+  font-size: 12px;
+  padding: 5px 6px;
+  border: 1px solid #d4d4d8;
+  border-radius: 4px;
+  resize: vertical;
+  margin-bottom: 6px;
+  color: #18181b;
+  background: #fff;
+}
+.style-row select {
+  width: 100%;
+  font-size: 12px;
+  padding: 3px;
+  border: 1px solid #d4d4d8;
+  border-radius: 4px;
+  background: #fff;
+  color: #18181b;
+}
+
 /* --- Layers panel --- */
 .layer-list {
   list-style: none;

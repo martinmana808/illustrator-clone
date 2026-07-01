@@ -63,6 +63,10 @@ export class TypeTool {
     else if (key.length === 1) t.content = t.content + key;
   }
 
+  setContent(s: string): void {
+    if (this.editingText) this.editingText.content = s;
+  }
+
   setFontSize(n: number): void {
     if (this.editingText) this.editingText.fontSize = n;
   }

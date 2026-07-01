@@ -7,6 +7,7 @@ const TOOLS: { id: ToolId; label: string; key: string }[] = [
   { id: "select", label: "Select", key: "V" },
   { id: "direct-select", label: "Direct Select", key: "A" },
   { id: "pen", label: "Pen", key: "P" },
+  { id: "type", label: "Type", key: "T" },
 ];
 
 export function Toolbar() {

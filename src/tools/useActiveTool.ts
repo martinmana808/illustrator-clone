@@ -3,6 +3,7 @@ import type { EditorDoc } from "@/engine/document";
 import { PenTool } from "./pen";
 import { SelectTool } from "./select";
 import { DirectSelectTool } from "./directSelect";
+import { TypeTool } from "./type";
 import type { Modifiers, Vec, ToolController } from "./types";
 import { editorStore } from "@/state/store";
 import { applyPathfinder, type PathfinderOp, type PItem } from "@/engine/pathfinder";
@@ -43,6 +44,7 @@ export function installTools(doc: EditorDoc): ToolController {
   const pen = new PenTool(doc);
   const select = new SelectTool(doc);
   const directSelect = new DirectSelectTool(doc);
+  const type = new TypeTool(doc);
   const tool = new scope.Tool();
   let overlay: paper.Path | null = null;
 
@@ -90,6 +92,10 @@ export function installTools(doc: EditorDoc): ToolController {
     } else if (active() === "direct-select") {
       directSelect.pointerDown(vec(e.point), mods(e));
       scope.view.update();
+    } else if (active() === "type") {
+      type.pointerDown(vec(e.point), mods(e));
+      scope.view.update();
+      emit();
     }
   };
   tool.onMouseDrag = (e: paper.ToolEvent) => {
@@ -217,6 +223,37 @@ export function installTools(doc: EditorDoc): ToolController {
       loadDocument(doc, json);
       history.capture();
       afterRestore();
+    },
+    typeKey: (key) => {
+      type.keyInput(key);
+      scope.view.update();
+      emit();
+    },
+    setTextContent: (s) => {
+      type.setContent(s);
+      scope.view.update();
+      emit();
+    },
+    finishTyping: () => {
+      type.finish();
+      scope.view.update();
+      commit();
+    },
+    isTyping: () => type.isEditing,
+    setFontSize: (n) => {
+      type.setFontSize(n);
+      scope.view.update();
+      emit();
+    },
+    setFontFamily: (f) => {
+      type.setFontFamily(f);
+      scope.view.update();
+      emit();
+    },
+    readText: () => {
+      const t = type.editing;
+      if (!t) return null;
+      return { content: t.content, fontSize: t.fontSize as number, fontFamily: t.fontFamily as string };
     },
     undo: () => {
       if (history.undo()) afterRestore();

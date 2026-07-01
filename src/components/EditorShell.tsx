@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { Toolbar } from "./Toolbar";
 import { HistoryBar } from "./HistoryBar";
 import { StylePanel } from "./StylePanel";
+import { TypePanel } from "./TypePanel";
 import { LayersPanel } from "./LayersPanel";
 import { PathfinderPanel } from "./PathfinderPanel";
 import { ExportBar } from "./ExportBar";
@@ -27,6 +28,7 @@ export function EditorShell() {
       <div className="rail">
         <HistoryBar />
         <StylePanel />
+        <TypePanel />
         <LayersPanel />
         <PathfinderPanel />
         <DocBar />
