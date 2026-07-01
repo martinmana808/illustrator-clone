@@ -32,5 +32,9 @@ export interface ToolController {
   moveLayer(id: number, dir: -1 | 1): void;
   exportSVG(): void;
   exportPNG(): void;
+  undo(): void;
+  redo(): void;
+  canUndo(): boolean;
+  canRedo(): boolean;
   onChange(cb: () => void): () => void;
 }

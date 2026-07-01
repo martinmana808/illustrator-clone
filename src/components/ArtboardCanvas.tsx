@@ -31,6 +31,16 @@ export function ArtboardCanvas() {
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement) return;
       const k = e.key.toLowerCase();
+      // Undo / redo (⌘Z / ⌘⇧Z or Ctrl variants).
+      if ((e.metaKey || e.ctrlKey) && k === "z") {
+        e.preventDefault();
+        const c = editorStore.getState().controller;
+        if (e.shiftKey) c?.redo();
+        else c?.undo();
+        return;
+      }
+      // Don't hijack other ⌘/Ctrl combos as tool switches.
+      if (e.metaKey || e.ctrlKey) return;
       if (k === "v") editorStore.getState().setTool("select");
       if (k === "a") editorStore.getState().setTool("direct-select");
       if (k === "p") editorStore.getState().setTool("pen");

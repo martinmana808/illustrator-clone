@@ -16,6 +16,7 @@ import {
   moveLayer as moveLayerFn,
 } from "@/engine/layers";
 import { downloadSVG, downloadPNG } from "@/engine/export";
+import { History } from "@/engine/history";
 
 function mods(event: paper.ToolEvent | paper.KeyEvent): Modifiers {
   const k = (event.modifiers ?? {}) as Record<string, boolean>;
@@ -48,6 +49,11 @@ export function installTools(doc: EditorDoc): ToolController {
   const listeners = new Set<() => void>();
   const emit = () => listeners.forEach((cb) => cb());
   const sel = () => select.selection;
+  const history = new History(doc);
+  const commit = () => {
+    history.capture();
+    emit();
+  };
   const syncSelection = () => {
     editorStore.getState().setSelectionCount(select.selection.length);
     emit();
@@ -100,13 +106,16 @@ export function installTools(doc: EditorDoc): ToolController {
   tool.onMouseUp = (e: paper.ToolEvent) => {
     if (active() === "pen") {
       pen.pointerUp(vec(e.point), mods(e));
+      commit();
     } else if (active() === "select") {
       select.pointerUp(vec(e.point), mods(e));
       scope.view.update();
       syncSelection();
+      commit();
     } else if (active() === "direct-select") {
       directSelect.pointerUp(vec(e.point), mods(e));
       scope.view.update();
+      commit();
     }
   };
   tool.onMouseMove = (e: paper.ToolEvent) => {
@@ -124,6 +133,7 @@ export function installTools(doc: EditorDoc): ToolController {
       select.deleteSelection();
       scope.view.update();
       syncSelection();
+      commit();
     }
   };
 
@@ -140,8 +150,14 @@ export function installTools(doc: EditorDoc): ToolController {
     });
     scope.view.update();
     editorStore.getState().setSelectionCount(result.length);
-    emit();
+    commit();
   }
+
+  const afterRestore = () => {
+    scope.view.update();
+    editorStore.getState().setSelectionCount(select.selection.length);
+    emit();
+  };
 
   tool.activate();
   return {
@@ -154,25 +170,26 @@ export function installTools(doc: EditorDoc): ToolController {
     setFill: (css) => {
       applyFill(sel(), css);
       scope.view.update();
-      emit();
+      commit();
     },
     setStroke: (css) => {
       applyStroke(sel(), css);
       scope.view.update();
-      emit();
+      commit();
     },
     setStrokeWidth: (w) => {
       applyStrokeWidth(sel(), w);
       scope.view.update();
-      emit();
+      commit();
     },
     readSelectionStyle: () => readStyle(sel()),
     layers: () => listLayers(doc),
     addLayer: (name) => {
       addLayerFn(doc, name);
-      emit();
+      commit();
     },
     renameLayer: (id, name) => {
+      // No history capture per keystroke; rename is committed on next edit.
       renameLayerFn(doc, id, name);
       emit();
     },
@@ -180,20 +197,28 @@ export function installTools(doc: EditorDoc): ToolController {
       const info = listLayers(doc).find((l) => l.id === id);
       if (info) setLayerVisible(doc, id, !info.visible);
       scope.view.update();
-      emit();
+      commit();
     },
     toggleLayerLocked: (id) => {
       const info = listLayers(doc).find((l) => l.id === id);
       if (info) setLayerLocked(doc, id, !info.locked);
-      emit();
+      commit();
     },
     moveLayer: (id, dir) => {
       moveLayerFn(doc, id, dir);
       scope.view.update();
-      emit();
+      commit();
     },
     exportSVG: () => downloadSVG(doc),
     exportPNG: () => downloadPNG(doc),
+    undo: () => {
+      if (history.undo()) afterRestore();
+    },
+    redo: () => {
+      if (history.redo()) afterRestore();
+    },
+    canUndo: () => history.canUndo(),
+    canRedo: () => history.canRedo(),
     onChange: (cb) => {
       listeners.add(cb);
       return () => listeners.delete(cb);

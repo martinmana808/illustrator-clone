@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { Toolbar } from "./Toolbar";
+import { HistoryBar } from "./HistoryBar";
 import { StylePanel } from "./StylePanel";
 import { LayersPanel } from "./LayersPanel";
 import { PathfinderPanel } from "./PathfinderPanel";
@@ -23,6 +24,7 @@ export function EditorShell() {
         <ArtboardCanvas />
       </div>
       <div className="rail">
+        <HistoryBar />
         <StylePanel />
         <LayersPanel />
         <PathfinderPanel />
