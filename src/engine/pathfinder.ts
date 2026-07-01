@@ -5,9 +5,18 @@ export type PItem = paper.PathItem;
 /** Options passed to every Paper boolean op so results stay out of the layer. */
 const NO_INSERT = { insert: false } as const;
 
+/**
+ * Absolute area of a path item. Cast to Path because Paper's boolean ops are
+ * typed to return the `PathItem` base, on which `area` is not declared (it
+ * lives on Path/CompoundPath, both of which every result actually is).
+ */
+function absArea(it: PItem): number {
+  return Math.abs((it as paper.Path).area);
+}
+
 /** Sum of absolute areas of the given items. */
 export function totalArea(items: PItem[]): number {
-  return items.reduce((sum, it) => sum + Math.abs(it.area), 0);
+  return items.reduce((sum, it) => sum + absArea(it), 0);
 }
 
 /** Clone items without inserting them into the active layer. */
@@ -85,14 +94,14 @@ export function divide(items: PItem[]): PItem[] {
     const exclusive = u
       ? work[i].subtract(u, NO_INSERT)
       : (work[i].clone({ insert: false }) as PItem);
-    if (Math.abs(exclusive.area) > 1e-6) faces.push(exclusive);
+    if (absArea(exclusive) > 1e-6) faces.push(exclusive);
   }
 
   // Pairwise intersection faces (each unordered pair once).
   for (let i = 0; i < work.length; i++) {
     for (let j = i + 1; j < work.length; j++) {
       const inter = work[i].intersect(work[j], NO_INSERT);
-      if (Math.abs(inter.area) > 1e-6) faces.push(inter);
+      if (absArea(inter) > 1e-6) faces.push(inter);
     }
   }
 
@@ -107,7 +116,7 @@ export function trim(items: PItem[]): PItem[] {
     const inFront = work.slice(i + 1);
     const u = unionOf(inFront);
     const clipped = u ? work[i].subtract(u, NO_INSERT) : work[i];
-    if (Math.abs(clipped.area) > 1e-6) out.push(clipped);
+    if (absArea(clipped) > 1e-6) out.push(clipped);
   }
   return out;
 }
@@ -148,7 +157,7 @@ export function crop(items: PItem[]): PItem[] {
   const out: PItem[] = [];
   for (let i = 0; i < work.length - 1; i++) {
     const inside = work[i].intersect(top, NO_INSERT);
-    if (Math.abs(inside.area) > 1e-6) out.push(inside);
+    if (absArea(inside) > 1e-6) out.push(inside);
   }
   return out;
 }

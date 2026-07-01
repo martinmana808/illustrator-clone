@@ -15,10 +15,12 @@ export function ArtboardCanvas() {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const doc = attachToCanvas(canvas, W, H);
-    const uninstall = installTools(doc);
+    const controller = installTools(doc);
+    editorStore.getState().setController(controller);
     doc.scope.view.update();
     return () => {
-      uninstall();
+      controller.teardown();
+      editorStore.getState().setController(null);
       doc.scope.project.clear();
       doc.scope.view.remove();
     };

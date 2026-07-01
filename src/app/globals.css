@@ -51,7 +51,7 @@ a {
 /* --- Editor layout --- */
 .editor {
   display: grid;
-  grid-template-columns: 160px 1fr;
+  grid-template-columns: 160px 1fr 200px;
   height: 100vh;
   width: 100%;
   color: #18181b;
@@ -86,4 +86,58 @@ a {
 .artboard {
   background: #ffffff;
   box-shadow: 0 1px 8px rgba(0, 0, 0, 0.15);
+}
+.artboard-loading {
+  display: grid;
+  place-items: center;
+  width: 900px;
+  height: 600px;
+  background: #fff;
+  color: #a1a1aa;
+}
+
+/* --- Right rail panels --- */
+.panel {
+  padding: 10px;
+  background: #f4f4f5;
+  border-left: 1px solid #d4d4d8;
+  overflow-y: auto;
+}
+.panel-title {
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 2px;
+}
+.panel-subtitle {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #71717a;
+  margin: 10px 0 4px;
+}
+.panel-hint {
+  font-size: 11px;
+  color: #71717a;
+}
+.pf-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+.pf-btn {
+  padding: 6px 4px;
+  font-size: 11px;
+  border: 1px solid #d4d4d8;
+  border-radius: 5px;
+  background: #fff;
+  color: #18181b;
+  cursor: pointer;
+}
+.pf-btn:hover:not(:disabled) {
+  background: #e0e7ff;
+  border-color: #6366f1;
+}
+.pf-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
