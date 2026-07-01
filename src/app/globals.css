@@ -47,3 +47,43 @@ a {
     color-scheme: dark;
   }
 }
+
+/* --- Editor layout --- */
+.editor {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  height: 100vh;
+  width: 100%;
+  color: #18181b;
+}
+.toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  background: #f4f4f5;
+  border-right: 1px solid #d4d4d8;
+}
+.tool {
+  padding: 8px;
+  text-align: left;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: #18181b;
+  cursor: pointer;
+}
+.tool.active {
+  background: #e0e7ff;
+  border-color: #6366f1;
+}
+.stage {
+  display: grid;
+  place-items: center;
+  background: #e4e4e7;
+  overflow: auto;
+}
+.artboard {
+  background: #ffffff;
+  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.15);
+}

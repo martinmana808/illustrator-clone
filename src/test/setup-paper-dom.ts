@@ -36,5 +36,5 @@ if (typeof HTMLCanvasElement !== "undefined") {
     this: HTMLCanvasElement
   ): CanvasRenderingContext2D {
     return makeStubContext(this);
-  } as HTMLCanvasElement["getContext"];
+  } as unknown as HTMLCanvasElement["getContext"];
 }
