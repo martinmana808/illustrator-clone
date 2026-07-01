@@ -5,6 +5,16 @@ import { SelectTool } from "./select";
 import type { Modifiers, Vec, ToolController } from "./types";
 import { editorStore } from "@/state/store";
 import { applyPathfinder, type PathfinderOp, type PItem } from "@/engine/pathfinder";
+import { applyFill, applyStroke, applyStrokeWidth, readStyle } from "@/engine/style";
+import {
+  listLayers,
+  addLayer as addLayerFn,
+  renameLayer as renameLayerFn,
+  setLayerVisible,
+  setLayerLocked,
+  moveLayer as moveLayerFn,
+} from "@/engine/layers";
+import { downloadSVG, downloadPNG } from "@/engine/export";
 
 function mods(event: paper.ToolEvent | paper.KeyEvent): Modifiers {
   const k = (event.modifiers ?? {}) as Record<string, boolean>;
@@ -33,8 +43,13 @@ export function installTools(doc: EditorDoc): ToolController {
   let overlay: paper.Path | null = null;
 
   const active = () => editorStore.getState().activeTool;
-  const syncSelection = () =>
+  const listeners = new Set<() => void>();
+  const emit = () => listeners.forEach((cb) => cb());
+  const sel = () => select.selection;
+  const syncSelection = () => {
     editorStore.getState().setSelectionCount(select.selection.length);
+    emit();
+  };
 
   function drawPreview() {
     if (overlay) {
@@ -114,6 +129,7 @@ export function installTools(doc: EditorDoc): ToolController {
     });
     scope.view.update();
     editorStore.getState().setSelectionCount(result.length);
+    emit();
   }
 
   tool.activate();
@@ -121,7 +137,56 @@ export function installTools(doc: EditorDoc): ToolController {
     teardown: () => {
       if (overlay) overlay.remove();
       tool.remove();
+      listeners.clear();
     },
     runPathfinder,
+    setFill: (css) => {
+      applyFill(sel(), css);
+      scope.view.update();
+      emit();
+    },
+    setStroke: (css) => {
+      applyStroke(sel(), css);
+      scope.view.update();
+      emit();
+    },
+    setStrokeWidth: (w) => {
+      applyStrokeWidth(sel(), w);
+      scope.view.update();
+      emit();
+    },
+    readSelectionStyle: () => readStyle(sel()),
+    layers: () => listLayers(doc),
+    addLayer: (name) => {
+      addLayerFn(doc, name);
+      emit();
+    },
+    renameLayer: (id, name) => {
+      renameLayerFn(doc, id, name);
+      emit();
+    },
+    toggleLayerVisible: (id) => {
+      const info = listLayers(doc).find((l) => l.id === id);
+      if (info) setLayerVisible(doc, id, !info.visible);
+      scope.view.update();
+      emit();
+    },
+    toggleLayerLocked: (id) => {
+      const info = listLayers(doc).find((l) => l.id === id);
+      if (info) setLayerLocked(doc, id, !info.locked);
+      emit();
+    },
+    moveLayer: (id, dir) => {
+      moveLayerFn(doc, id, dir);
+      scope.view.update();
+      emit();
+    },
+    exportSVG: () => downloadSVG(doc),
+    exportPNG: () => downloadPNG(doc),
+    onChange: (cb) => {
+      listeners.add(cb);
+      return () => listeners.delete(cb);
+    },
   };
 }
+
