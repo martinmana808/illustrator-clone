@@ -7,6 +7,8 @@ import { AnchorPointTool } from "./anchorPoint";
 import { TypeTool } from "./type";
 import { TypeOnPathTool } from "./typeOnPath";
 import { handlePoints } from "./transformBox";
+import { cursorCss } from "./penCursors";
+import { HIT_TOLERANCE } from "./constants";
 import type { Modifiers, Vec, ToolController } from "./types";
 import { editorStore } from "@/state/store";
 import { applyPathfinder, type PathfinderOp, type PItem } from "@/engine/pathfinder";
@@ -44,6 +46,7 @@ function vec(pt: paper.Point): Vec {
 export function installTools(doc: EditorDoc): ToolController {
   const scope = doc.scope;
   scope.activate();
+  scope.settings.handleSize = 0; // our overlay owns anchor/handle rendering
   const pen = new PenTool(doc);
   const select = new SelectTool(doc);
   const directSelect = new DirectSelectTool(doc);
@@ -97,6 +100,43 @@ export function installTools(doc: EditorDoc): ToolController {
     overlays.push(caret);
   }
 
+  // Illustrator-style anchors/handles for point-editing tools.
+  function drawAnchorOverlay() {
+    const blue = new scope.Color(0.15, 0.5, 0.9);
+    for (const item of scope.project.activeLayer.children) {
+      const path = item as paper.Path;
+      if (!path.segments) continue;
+      if (!(path.selected || path.segments.some((s) => s.selected))) continue;
+      for (const seg of path.segments) {
+        if (seg.selected) {
+          for (const h of [seg.handleIn, seg.handleOut]) {
+            if (h.length < 0.01) continue;
+            const end = seg.point.add(h);
+            const line = new scope.Path.Line(seg.point, end);
+            line.strokeColor = blue;
+            line.strokeWidth = 1;
+            overlays.push(line);
+            const dot = new scope.Path.Circle(end, 2.5);
+            dot.fillColor = blue;
+            overlays.push(dot);
+          }
+        }
+        const sq = new scope.Path.Rectangle({
+          point: [seg.point.x - 3, seg.point.y - 3],
+          size: [6, 6],
+        });
+        if (seg.selected) {
+          sq.fillColor = blue;
+        } else {
+          sq.fillColor = new scope.Color(1, 1, 1);
+          sq.strokeColor = blue;
+          sq.strokeWidth = 1;
+        }
+        overlays.push(sq);
+      }
+    }
+  }
+
   function drawOverlays() {
     stripOverlays();
     if (active() === "type") {
@@ -104,17 +144,23 @@ export function installTools(doc: EditorDoc): ToolController {
       scope.view.update();
       return;
     }
+    if (active() === "direct-select" || active() === "anchor-point") {
+      drawAnchorOverlay();
+      scope.view.update();
+      return;
+    }
     if (active() === "pen") {
       const p = pen.previewPoint;
       const path = pen.currentPath;
       if (p && path && path.lastSegment) {
-        overlays.push(
-          new scope.Path({
-            segments: [path.lastSegment.point, new scope.Point(p.x, p.y)],
-            strokeColor: new scope.Color(0.4, 0.4, 0.9),
-            dashArray: [4, 4],
-          })
-        );
+        // Curved preview: bend using the last anchor's outgoing handle.
+        const last = path.lastSegment;
+        const seg0 = new scope.Segment(last.point, last.handleIn, last.handleOut);
+        const seg1 = new scope.Segment(new scope.Point(p.x, p.y));
+        const preview = new scope.Path([seg0, seg1]);
+        preview.strokeColor = new scope.Color(0.4, 0.4, 0.9);
+        preview.dashArray = [4, 4];
+        overlays.push(preview);
       }
     } else if (active() === "select") {
       const b = select.selectionBounds();
@@ -208,6 +254,8 @@ export function installTools(doc: EditorDoc): ToolController {
     if (active() === "pen") {
       pen.pointerMove(vec(e.point), mods(e));
       drawOverlays();
+      const el = scope.view.element as HTMLCanvasElement | undefined;
+      if (el) el.style.cursor = cursorCss(pen.hoverCursor(vec(e.point), mods(e)));
     }
   };
   tool.onKeyDown = (e: paper.KeyEvent) => {
@@ -253,6 +301,8 @@ export function installTools(doc: EditorDoc): ToolController {
     if (t !== lastTool) {
       lastTool = t;
       drawOverlays();
+      const el = scope.view.element as HTMLCanvasElement | undefined;
+      if (el) el.style.cursor = t === "pen" ? cursorCss("pen") : "default";
     }
   });
 
@@ -264,11 +314,33 @@ export function installTools(doc: EditorDoc): ToolController {
     }
   }, 530);
 
+  // Double-click a path with the Selection tool → drop into Direct Select.
+  const canvasEl = scope.view.element as HTMLCanvasElement | undefined;
+  const onDblClick = (ev: MouseEvent) => {
+    if (active() !== "select" || !canvasEl) return;
+    const rect = canvasEl.getBoundingClientRect();
+    const pt = new scope.Point(ev.clientX - rect.left, ev.clientY - rect.top);
+    const hit = scope.project.hitTest(pt, {
+      fill: true,
+      stroke: true,
+      tolerance: HIT_TOLERANCE,
+    });
+    if (hit && hit.item) {
+      scope.project.deselectAll();
+      (hit.item as paper.Path).fullySelected = true;
+      editorStore.getState().setTool("direct-select");
+      editorStore.getState().setSelectionCount(1);
+      drawOverlays();
+    }
+  };
+  canvasEl?.addEventListener("dblclick", onDblClick);
+
   tool.activate();
   return {
     teardown: () => {
       unsubTool();
       clearInterval(blink);
+      canvasEl?.removeEventListener("dblclick", onDblClick);
       stripOverlays();
       tool.remove();
       listeners.clear();
