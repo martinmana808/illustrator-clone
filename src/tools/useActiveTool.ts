@@ -6,6 +6,9 @@ import { DirectSelectTool } from "./directSelect";
 import { AnchorPointTool } from "./anchorPoint";
 import { TypeTool } from "./type";
 import { TypeOnPathTool } from "./typeOnPath";
+import { ZoomTool } from "./zoomTool";
+import { HandTool } from "./handTool";
+import { zoomAtPoint, fitBounds, clampZoom } from "@/engine/viewport";
 import { handlePoints } from "./transformBox";
 import { cursorCss } from "./penCursors";
 import { HIT_TOLERANCE } from "./constants";
@@ -53,7 +56,25 @@ export function installTools(doc: EditorDoc): ToolController {
   const anchorPoint = new AnchorPointTool(doc);
   const type = new TypeTool(doc);
   const typeOnPath = new TypeOnPathTool(doc);
+  const zoomTool = new ZoomTool(doc);
+  const handTool = new HandTool(doc);
   const tool = new scope.Tool();
+
+  // Full-screen artboard chrome, sized to the canvas at mount.
+  const el0 = scope.view.element as HTMLCanvasElement;
+  const artboardSize = { width: el0?.width || 900, height: el0?.height || 600 };
+  function drawArtboard() {
+    const board = new scope.Path.Rectangle({
+      point: [0, 0],
+      size: [artboardSize.width, artboardSize.height],
+    });
+    board.fillColor = new scope.Color(1, 1, 1);
+    board.strokeColor = new scope.Color(0.8, 0.8, 0.82);
+    board.strokeWidth = 1 / scope.view.zoom;
+    board.data.isChrome = true;
+    board.sendToBack();
+    overlays.push(board);
+  }
 
   // UI overlays (pen rubber-band, selection box + handles). These live in the
   // project so they render, but must NEVER be serialized — stripOverlays() is
@@ -137,8 +158,11 @@ export function installTools(doc: EditorDoc): ToolController {
     }
   }
 
+  const syncZoom = () => editorStore.getState().setZoom(scope.view.zoom);
+
   function drawOverlays() {
     stripOverlays();
+    drawArtboard();
     if (active() === "type") {
       if (type.isEditing) drawTextCaret();
       scope.view.update();
@@ -218,6 +242,10 @@ export function installTools(doc: EditorDoc): ToolController {
     } else if (active() === "type-on-path") {
       typeOnPath.pointerDown(vec(e.point), mods(e));
       commit();
+    } else if (active() === "zoom") {
+      zoomTool.pointerDown(vec(e.point), mods(e));
+    } else if (active() === "hand") {
+      handTool.pointerDown(vec(e.point));
     }
     drawOverlays();
   };
@@ -230,6 +258,10 @@ export function installTools(doc: EditorDoc): ToolController {
       directSelect.pointerDrag(vec(e.point), mods(e));
     } else if (active() === "anchor-point") {
       anchorPoint.pointerDrag(vec(e.point), mods(e));
+    } else if (active() === "zoom") {
+      zoomTool.pointerDrag(vec(e.point), mods(e));
+    } else if (active() === "hand") {
+      handTool.pointerDrag(vec(e.point));
     }
     drawOverlays();
   };
@@ -247,6 +279,11 @@ export function installTools(doc: EditorDoc): ToolController {
     } else if (active() === "anchor-point") {
       anchorPoint.pointerUp(vec(e.point), mods(e));
       commit();
+    } else if (active() === "zoom") {
+      zoomTool.pointerUp(vec(e.point), mods(e));
+      syncZoom();
+    } else if (active() === "hand") {
+      handTool.pointerUp(vec(e.point));
     }
     drawOverlays();
   };
@@ -293,6 +330,19 @@ export function installTools(doc: EditorDoc): ToolController {
     emit();
     drawOverlays();
   };
+
+  // --- Navigation ---
+  const viewState = () => ({
+    zoom: scope.view.zoom,
+    center: { x: scope.view.center.x, y: scope.view.center.y },
+  });
+  const applyView = (s: { zoom: number; center: { x: number; y: number } }) => {
+    scope.view.zoom = s.zoom;
+    scope.view.center = new scope.Point(s.center.x, s.center.y);
+    syncZoom();
+    drawOverlays();
+  };
+  const artboardCenter = () => ({ x: artboardSize.width / 2, y: artboardSize.height / 2 });
 
   // Redraw overlays when the active tool changes (e.g. show/hide the box).
   let lastTool = active();
@@ -389,7 +439,22 @@ export function installTools(doc: EditorDoc): ToolController {
       commit();
     },
     exportSVG: () => withoutOverlays(() => downloadSVG(doc)),
-    exportPNG: () => withoutOverlays(() => downloadPNG(doc)),
+    exportPNG: () =>
+      withoutOverlays(() => {
+        const view = scope.view;
+        const sZoom = view.zoom;
+        const sCenter = view.center;
+        const sSize = view.viewSize;
+        view.viewSize = new scope.Size(artboardSize.width, artboardSize.height);
+        view.zoom = 1;
+        view.center = new scope.Point(artboardSize.width / 2, artboardSize.height / 2);
+        view.update();
+        downloadPNG(doc);
+        view.viewSize = sSize;
+        view.zoom = sZoom;
+        view.center = sCenter;
+        view.update();
+      }),
     save: () => withoutOverlays(() => downloadDocument(doc)),
     open: (json) => {
       loadDocument(doc, json);
@@ -444,6 +509,31 @@ export function installTools(doc: EditorDoc): ToolController {
     },
     canUndo: () => history.canUndo(),
     canRedo: () => history.canRedo(),
+    zoomIn: () => applyView(zoomAtPoint(viewState(), 1.25, viewState().center)),
+    zoomOut: () => applyView(zoomAtPoint(viewState(), 0.8, viewState().center)),
+    zoomTo: (z) => applyView({ zoom: clampZoom(z), center: viewState().center }),
+    fitArtboard: () =>
+      applyView(
+        fitBounds(
+          { width: scope.view.viewSize.width, height: scope.view.viewSize.height },
+          { x: 0, y: 0, width: artboardSize.width, height: artboardSize.height }
+        )
+      ),
+    actualSize: () => applyView({ zoom: 1, center: artboardCenter() }),
+    zoomAtClient: (clientX, clientY, factor) => {
+      const rect = (scope.view.element as HTMLCanvasElement).getBoundingClientRect();
+      const proj = scope.view.viewToProject(
+        new scope.Point(clientX - rect.left, clientY - rect.top)
+      );
+      applyView(zoomAtPoint(viewState(), factor, { x: proj.x, y: proj.y }));
+    },
+    panBy: (dx, dy) => {
+      scope.view.center = scope.view.center.add(
+        new scope.Point(dx / scope.view.zoom, dy / scope.view.zoom)
+      );
+      drawOverlays();
+    },
+    getZoom: () => scope.view.zoom,
     onChange: (cb) => {
       listeners.add(cb);
       return () => listeners.delete(cb);

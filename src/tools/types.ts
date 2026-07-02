@@ -46,5 +46,13 @@ export interface ToolController {
   redo(): void;
   canUndo(): boolean;
   canRedo(): boolean;
+  zoomIn(): void;
+  zoomOut(): void;
+  zoomTo(z: number): void;
+  fitArtboard(): void;
+  actualSize(): void;
+  zoomAtClient(clientX: number, clientY: number, factor: number): void;
+  panBy(dx: number, dy: number): void;
+  getZoom(): number;
   onChange(cb: () => void): () => void;
 }

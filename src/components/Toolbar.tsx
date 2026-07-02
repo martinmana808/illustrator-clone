@@ -10,6 +10,8 @@ const TOOLS: { id: ToolId; label: string; key: string }[] = [
   { id: "pen", label: "Pen", key: "P" },
   { id: "type", label: "Type", key: "T" },
   { id: "type-on-path", label: "Type on Path", key: "" },
+  { id: "hand", label: "Hand", key: "H" },
+  { id: "zoom", label: "Zoom", key: "Z" },
 ];
 
 export function Toolbar() {
