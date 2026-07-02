@@ -16,6 +16,7 @@ const TOOLS: { id: ToolId; label: string; key: string }[] = [
   { id: "line", label: "Line", key: "\\" },
   { id: "type", label: "Type", key: "T" },
   { id: "type-on-path", label: "Type on Path", key: "" },
+  { id: "gradient", label: "Gradient", key: "G" },
   { id: "hand", label: "Hand", key: "H" },
   { id: "zoom", label: "Zoom", key: "Z" },
 ];

@@ -56,5 +56,9 @@ export interface ToolController {
   getZoom(): number;
   shapeArrow(key: string): void;
   isDrawingShape(): boolean;
+  readSelectionGradient(): import("@/engine/gradients").GradientDesc | null;
+  setGradientType(type: "linear" | "radial"): void;
+  setGradientStops(stops: import("@/engine/gradients").GradientStop[]): void;
+  applyDefaultGradient(): void;
   onChange(cb: () => void): () => void;
 }

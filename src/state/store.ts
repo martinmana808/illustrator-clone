@@ -15,6 +15,7 @@ export type ToolId =
   | "line"
   | "type"
   | "type-on-path"
+  | "gradient"
   | "zoom"
   | "hand";
 

@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { Toolbar } from "./Toolbar";
 import { HistoryBar } from "./HistoryBar";
 import { StylePanel } from "./StylePanel";
+import { GradientPanel } from "./GradientPanel";
 import { TypePanel } from "./TypePanel";
 import { LayersPanel } from "./LayersPanel";
 import { PathfinderPanel } from "./PathfinderPanel";
@@ -30,6 +31,7 @@ export function EditorShell() {
       <div className="rail">
         <HistoryBar />
         <StylePanel />
+        <GradientPanel />
         <TypePanel />
         <LayersPanel />
         <PathfinderPanel />

@@ -176,6 +176,23 @@ a {
   opacity: 0.4;
   cursor: default;
 }
+.pf-btn.on {
+  background: #e0e7ff;
+  border-color: #6366f1;
+}
+.grad-stop {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0;
+}
+.grad-stop input[type="color"] {
+  width: 40px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid #d4d4d8;
+  border-radius: 4px;
+}
 
 /* --- Style panel --- */
 .panel-title {

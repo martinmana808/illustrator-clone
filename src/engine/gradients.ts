@@ -11,19 +11,19 @@ export interface GradientDesc {
   to: { x: number; y: number };
 }
 
-type Fillable = paper.Item & { fillColor: unknown; bounds: paper.Rectangle };
-
-/** Apply a gradient fill to each item. */
+/** Apply a gradient fill to each item. Paper accepts this config object at runtime. */
 export function applyGradient(items: paper.Item[], desc: GradientDesc): void {
-  for (const it of items) {
-    (it as Fillable).fillColor = {
+  const gradientColor = (it: paper.Item) =>
+    ({
       gradient: {
         stops: desc.stops.map((s) => [s.color, s.offset]),
         radial: desc.type === "radial",
       },
       origin: [desc.from.x, desc.from.y],
       destination: [desc.to.x, desc.to.y],
-    } as unknown;
+    }) as unknown as paper.Color;
+  for (const it of items) {
+    (it as paper.Path).fillColor = gradientColor(it);
   }
 }
 
@@ -44,7 +44,7 @@ export function readGradient(item: paper.Item): GradientDesc | null {
 
 /** A white→black linear gradient spanning the item's bounds. */
 export function defaultGradient(item: paper.Item): GradientDesc {
-  const b = (item as Fillable).bounds;
+  const b = item.bounds;
   return {
     type: "linear",
     stops: [

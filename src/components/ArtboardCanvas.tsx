@@ -171,6 +171,7 @@ export function ArtboardCanvas() {
       if (k === "a") editorStore.getState().setTool("direct-select");
       if (k === "p") editorStore.getState().setTool("pen");
       if (k === "t") editorStore.getState().setTool("type");
+      if (k === "g") editorStore.getState().setTool("gradient");
       if (k === "z") editorStore.getState().setTool("zoom");
       if (k === "h") editorStore.getState().setTool("hand");
     };

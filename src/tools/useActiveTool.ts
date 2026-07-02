@@ -9,6 +9,13 @@ import { TypeOnPathTool } from "./typeOnPath";
 import { ZoomTool } from "./zoomTool";
 import { HandTool } from "./handTool";
 import { ShapeTool, SHAPE_KINDS, type ShapeKind } from "./shapeTool";
+import { GradientTool } from "./gradientTool";
+import {
+  applyGradient,
+  readGradient,
+  defaultGradient,
+  type GradientStop,
+} from "@/engine/gradients";
 import { zoomAtPoint, fitBounds, clampZoom } from "@/engine/viewport";
 import { handlePoints } from "./transformBox";
 import { cursorCss } from "./penCursors";
@@ -60,6 +67,7 @@ export function installTools(doc: EditorDoc): ToolController {
   const zoomTool = new ZoomTool(doc);
   const handTool = new HandTool(doc);
   const shapeTool = new ShapeTool(doc);
+  const gradientTool = new GradientTool(doc);
   const isShape = (t: string): t is ShapeKind => (SHAPE_KINDS as string[]).includes(t);
   const tool = new scope.Tool();
 
@@ -252,6 +260,8 @@ export function installTools(doc: EditorDoc): ToolController {
     } else if (isShape(active())) {
       shapeTool.setKind(active() as ShapeKind);
       shapeTool.pointerDown(vec(e.point), mods(e));
+    } else if (active() === "gradient") {
+      gradientTool.pointerDown(vec(e.point), mods(e));
     }
     drawOverlays();
   };
@@ -270,6 +280,8 @@ export function installTools(doc: EditorDoc): ToolController {
       handTool.pointerDrag(vec(e.point));
     } else if (isShape(active())) {
       shapeTool.pointerDrag(vec(e.point), mods(e));
+    } else if (active() === "gradient") {
+      gradientTool.pointerDrag(vec(e.point), mods(e));
     }
     drawOverlays();
   };
@@ -294,6 +306,9 @@ export function installTools(doc: EditorDoc): ToolController {
       handTool.pointerUp(vec(e.point));
     } else if (isShape(active())) {
       shapeTool.pointerUp(vec(e.point), mods(e));
+      commit();
+    } else if (active() === "gradient") {
+      gradientTool.pointerUp(vec(e.point), mods(e));
       commit();
     }
     drawOverlays();
@@ -550,6 +565,33 @@ export function installTools(doc: EditorDoc): ToolController {
       scope.view.update();
     },
     isDrawingShape: () => shapeTool.drawing,
+    readSelectionGradient: () => {
+      const first = select.selection[0];
+      return first ? readGradient(first) : null;
+    },
+    setGradientType: (type) => {
+      for (const it of select.selection) {
+        const base = readGradient(it) ?? defaultGradient(it);
+        applyGradient([it], { ...base, type });
+      }
+      scope.view.update();
+      commit();
+    },
+    setGradientStops: (stops: GradientStop[]) => {
+      for (const it of select.selection) {
+        const base = readGradient(it) ?? defaultGradient(it);
+        applyGradient([it], { ...base, stops });
+      }
+      scope.view.update();
+      commit();
+    },
+    applyDefaultGradient: () => {
+      for (const it of select.selection) {
+        applyGradient([it], defaultGradient(it));
+      }
+      scope.view.update();
+      commit();
+    },
     onChange: (cb) => {
       listeners.add(cb);
       return () => listeners.delete(cb);
