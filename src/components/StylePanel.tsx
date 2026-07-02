@@ -5,6 +5,7 @@ import { editorStore, useEditorStore } from "@/state/store";
 
 export function StylePanel() {
   const count = useEditorStore((s) => s.selectionCount);
+  const kind = useEditorStore((s) => s.selectionKind);
   const controller = useEditorStore((s) => s.controller);
   const [fill, setFill] = useState("#cccccc");
   const [stroke, setStroke] = useState("#000000");
@@ -22,6 +23,7 @@ export function StylePanel() {
     return controller.onChange(sync);
   }, [controller, count]);
 
+  if (kind === "none") return null;
   const disabled = count < 1;
   const c = () => editorStore.getState().controller;
 

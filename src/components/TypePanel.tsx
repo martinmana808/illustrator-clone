@@ -2,28 +2,35 @@
 
 import { useEffect, useState } from "react";
 import { editorStore, useEditorStore } from "@/state/store";
+import { ALL_FONTS, ensureFont } from "@/data/fonts";
 
-const FONTS = ["sans-serif", "serif", "monospace", "cursive"];
+type TextInfo = { content: string; fontSize: number; fontFamily: string };
 
 export function TypePanel() {
   const tool = useEditorStore((s) => s.activeTool);
+  const kind = useEditorStore((s) => s.selectionKind);
   const controller = useEditorStore((s) => s.controller);
-  const [text, setText] = useState<{
-    content: string;
-    fontSize: number;
-    fontFamily: string;
-  } | null>(null);
+  const editing = tool === "type" || tool === "type-on-path";
+  const [text, setText] = useState<TextInfo | null>(null);
 
   useEffect(() => {
     if (!controller) return;
-    const sync = () => setText(controller.readText());
+    const sync = () =>
+      setText(editing ? controller.readText() : kind === "text" ? controller.readSelectedText() : null);
     sync();
     return controller.onChange(sync);
-  }, [controller, tool]);
+  }, [controller, tool, kind, editing]);
 
-  if (tool !== "type") return null;
-
+  if (!(editing || kind === "text")) return null;
   const c = () => editorStore.getState().controller;
+  const applyContent = (s: string) =>
+    editing ? c()?.setTextContent(s) : c()?.setSelectedTextContent(s);
+  const applyFamily = async (f: string) => {
+    await ensureFont(f);
+    if (editing) c()?.setFontFamily(f);
+    else c()?.setSelectedFontFamily(f);
+  };
+  const applySize = (n: number) => (editing ? c()?.setFontSize(n) : c()?.setSelectedFontSize(n));
 
   return (
     <div className="panel">
@@ -36,15 +43,12 @@ export function TypePanel() {
             rows={2}
             value={text.content}
             placeholder="Type here…"
-            onChange={(e) => c()?.setTextContent(e.target.value)}
+            onChange={(e) => applyContent(e.target.value)}
           />
           <label className="style-row">
             <span>Font</span>
-            <select
-              value={text.fontFamily}
-              onChange={(e) => c()?.setFontFamily(e.target.value)}
-            >
-              {FONTS.map((f) => (
+            <select value={text.fontFamily} onChange={(e) => applyFamily(e.target.value)}>
+              {ALL_FONTS.map((f) => (
                 <option key={f} value={f}>
                   {f}
                 </option>
@@ -57,10 +61,10 @@ export function TypePanel() {
             <input
               type="range"
               min={8}
-              max={120}
+              max={200}
               step={1}
               value={text.fontSize}
-              onChange={(e) => c()?.setFontSize(Number(e.target.value))}
+              onChange={(e) => applySize(Number(e.target.value))}
             />
             <span className="mono">{text.fontSize}</span>
           </label>

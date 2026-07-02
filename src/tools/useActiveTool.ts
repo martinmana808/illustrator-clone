@@ -18,6 +18,7 @@ import {
 } from "@/engine/gradients";
 import { zoomAtPoint, fitBounds, clampZoom } from "@/engine/viewport";
 import { handlePoints } from "./transformBox";
+import { selectionKind } from "@/engine/selection";
 import { cursorCss } from "./penCursors";
 import { HIT_TOLERANCE } from "./constants";
 import type { Modifiers, Vec, ToolController } from "./types";
@@ -48,6 +49,16 @@ function mods(event: paper.ToolEvent | paper.KeyEvent): Modifiers {
 function vec(pt: paper.Point): Vec {
   return { x: pt.x, y: pt.y };
 }
+
+// Illustrator's Direct Selection cursor is a hollow (white) arrow.
+const WHITE_ARROW_CURSOR =
+  'url("data:image/svg+xml,' +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20">' +
+      '<path d="M4 2 L4 15 L7.5 11.5 L10 17 L12 16 L9.5 10.5 L14 10.5 Z" fill="#fff" stroke="#000" stroke-width="1"/>' +
+      "</svg>"
+  ) +
+  '") 4 2, default';
 
 /**
  * Attach a Paper.js Tool that routes pointer/keyboard events to the active
@@ -233,7 +244,12 @@ export function installTools(doc: EditorDoc): ToolController {
   };
   const syncSelection = () => {
     editorStore.getState().setSelectionCount(select.selection.length);
+    editorStore.getState().setSelectionKind(selectionKind(select.selection));
     emit();
+  };
+  const firstSelectedText = (): paper.PointText | null => {
+    const t = select.selection.find((it) => it.className === "PointText");
+    return (t as paper.PointText) ?? null;
   };
 
   tool.onMouseDown = (e: paper.ToolEvent) => {
@@ -378,7 +394,11 @@ export function installTools(doc: EditorDoc): ToolController {
       lastTool = t;
       drawOverlays();
       const el = scope.view.element as HTMLCanvasElement | undefined;
-      if (el) el.style.cursor = t === "pen" ? cursorCss("pen") : "default";
+      if (el) {
+        if (t === "pen") el.style.cursor = cursorCss("pen");
+        else if (t === "direct-select") el.style.cursor = WHITE_ARROW_CURSOR;
+        else el.style.cursor = "default";
+      }
     }
   });
 
@@ -403,10 +423,17 @@ export function installTools(doc: EditorDoc): ToolController {
     });
     if (hit && hit.item) {
       scope.project.deselectAll();
-      (hit.item as paper.Path).fullySelected = true;
-      editorStore.getState().setTool("direct-select");
-      editorStore.getState().setSelectionCount(1);
-      drawOverlays();
+      if (hit.item.className === "PointText") {
+        // Double-click text → jump straight into text editing.
+        type.editItem(hit.item as paper.PointText);
+        editorStore.getState().setTool("type");
+        drawOverlays();
+      } else {
+        (hit.item as paper.Path).fullySelected = true;
+        editorStore.getState().setTool("direct-select");
+        editorStore.getState().setSelectionCount(1);
+        drawOverlays();
+      }
     }
   };
   canvasEl?.addEventListener("dblclick", onDblClick);
@@ -526,6 +553,29 @@ export function installTools(doc: EditorDoc): ToolController {
       const t = type.editing;
       if (!t) return null;
       return { content: t.content, fontSize: t.fontSize as number, fontFamily: t.fontFamily as string };
+    },
+    readSelectedText: () => {
+      const t = firstSelectedText();
+      if (!t) return null;
+      return { content: t.content, fontSize: t.fontSize as number, fontFamily: t.fontFamily as string };
+    },
+    setSelectedTextContent: (s) => {
+      const t = firstSelectedText();
+      if (t) t.content = s;
+      scope.view.update();
+      commit();
+    },
+    setSelectedFontSize: (n) => {
+      const t = firstSelectedText();
+      if (t) t.fontSize = n;
+      scope.view.update();
+      commit();
+    },
+    setSelectedFontFamily: (f) => {
+      const t = firstSelectedText();
+      if (t) t.fontFamily = f;
+      scope.view.update();
+      commit();
     },
     undo: () => {
       if (history.undo()) afterRestore();

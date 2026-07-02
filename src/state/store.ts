@@ -1,6 +1,7 @@
 import { createStore } from "zustand/vanilla";
 import { useStore } from "zustand";
 import type { ToolController } from "@/tools/types";
+import type { SelectionKind } from "@/engine/selection";
 
 export type ToolId =
   | "select"
@@ -22,10 +23,12 @@ export type ToolId =
 export interface EditorState {
   activeTool: ToolId;
   selectionCount: number;
+  selectionKind: SelectionKind;
   zoom: number;
   controller: ToolController | null;
   setTool(t: ToolId): void;
   setSelectionCount(n: number): void;
+  setSelectionKind(k: SelectionKind): void;
   setZoom(z: number): void;
   setController(c: ToolController | null): void;
 }
@@ -33,10 +36,12 @@ export interface EditorState {
 export const editorStore = createStore<EditorState>((set) => ({
   activeTool: "select",
   selectionCount: 0,
+  selectionKind: "none",
   zoom: 1,
   controller: null,
   setTool: (t) => set({ activeTool: t }),
   setSelectionCount: (n) => set({ selectionCount: n }),
+  setSelectionKind: (k) => set({ selectionKind: k }),
   setZoom: (z) => set({ zoom: z }),
   setController: (c) => set({ controller: c }),
 }));

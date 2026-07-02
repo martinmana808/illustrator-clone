@@ -6,6 +6,7 @@ import type { GradientDesc } from "@/engine/gradients";
 
 export function GradientPanel() {
   const count = useEditorStore((s) => s.selectionCount);
+  const kind = useEditorStore((s) => s.selectionKind);
   const controller = useEditorStore((s) => s.controller);
   const [grad, setGrad] = useState<GradientDesc | null>(null);
 
@@ -16,7 +17,7 @@ export function GradientPanel() {
     return controller.onChange(sync);
   }, [controller, count]);
 
-  if (count < 1) return null;
+  if (kind !== "shape" && kind !== "mixed") return null;
   const c = () => editorStore.getState().controller;
   const stops = grad?.stops ?? [];
 

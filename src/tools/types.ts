@@ -42,6 +42,10 @@ export interface ToolController {
   setFontSize(n: number): void;
   setFontFamily(f: string): void;
   readText(): { content: string; fontSize: number; fontFamily: string } | null;
+  readSelectedText(): { content: string; fontSize: number; fontFamily: string } | null;
+  setSelectedTextContent(s: string): void;
+  setSelectedFontSize(n: number): void;
+  setSelectedFontFamily(f: string): void;
   undo(): void;
   redo(): void;
   canUndo(): boolean;

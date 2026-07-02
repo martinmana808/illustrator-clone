@@ -34,6 +34,13 @@ export class TypeTool {
     this.setCaret(this.caretIndex + dir);
   }
 
+  /** Begin editing an existing PointText (e.g. from a double-click). */
+  editItem(item: paper.PointText): void {
+    this.doc.scope.activate();
+    this.editingText = item;
+    this.caretIndex = item.content.length;
+  }
+
   private pt(p: Vec): paper.Point {
     return new this.doc.scope.Point(p.x, p.y);
   }

@@ -7,11 +7,14 @@ const SHAPE_MODES = ["unite", "minusFront", "intersect", "exclude"];
 
 export function PathfinderPanel() {
   const count = useEditorStore((s) => s.selectionCount);
+  const kind = useEditorStore((s) => s.selectionKind);
   const shapeModes = PATHFINDER_OPS.filter((o) => SHAPE_MODES.includes(o.id));
   const pathfinders = PATHFINDER_OPS.filter((o) => !SHAPE_MODES.includes(o.id));
 
   const run = (id: (typeof PATHFINDER_OPS)[number]["id"]) =>
     editorStore.getState().controller?.runPathfinder(id);
+
+  if (kind !== "shape" && kind !== "mixed") return null;
 
   return (
     <div className="panel">
