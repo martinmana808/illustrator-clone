@@ -416,6 +416,7 @@ export function installTools(doc: EditorDoc): ToolController {
     if (active() !== "select" || !canvasEl) return;
     const rect = canvasEl.getBoundingClientRect();
     const pt = new scope.Point(ev.clientX - rect.left, ev.clientY - rect.top);
+    stripOverlays(); // don't hit-test the artboard chrome / overlays
     const hit = scope.project.hitTest(pt, {
       fill: true,
       stroke: true,
@@ -434,6 +435,8 @@ export function installTools(doc: EditorDoc): ToolController {
         editorStore.getState().setSelectionCount(1);
         drawOverlays();
       }
+    } else {
+      drawOverlays(); // nothing hit — restore the chrome/overlays
     }
   };
   canvasEl?.addEventListener("dblclick", onDblClick);
