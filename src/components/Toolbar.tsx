@@ -6,6 +6,7 @@ import type { ToolId } from "@/state/store";
 const TOOLS: { id: ToolId; label: string; key: string }[] = [
   { id: "select", label: "Select", key: "V" },
   { id: "direct-select", label: "Direct Select", key: "A" },
+  { id: "anchor-point", label: "Anchor Point", key: "Shift+C" },
   { id: "pen", label: "Pen", key: "P" },
   { id: "type", label: "Type", key: "T" },
   { id: "type-on-path", label: "Type on Path", key: "" },

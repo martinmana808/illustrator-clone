@@ -3,6 +3,7 @@ import type { EditorDoc } from "@/engine/document";
 import { PenTool } from "./pen";
 import { SelectTool } from "./select";
 import { DirectSelectTool } from "./directSelect";
+import { AnchorPointTool } from "./anchorPoint";
 import { TypeTool } from "./type";
 import { TypeOnPathTool } from "./typeOnPath";
 import { handlePoints } from "./transformBox";
@@ -46,6 +47,7 @@ export function installTools(doc: EditorDoc): ToolController {
   const pen = new PenTool(doc);
   const select = new SelectTool(doc);
   const directSelect = new DirectSelectTool(doc);
+  const anchorPoint = new AnchorPointTool(doc);
   const type = new TypeTool(doc);
   const typeOnPath = new TypeOnPathTool(doc);
   const tool = new scope.Tool();
@@ -162,6 +164,8 @@ export function installTools(doc: EditorDoc): ToolController {
       syncSelection();
     } else if (active() === "direct-select") {
       directSelect.pointerDown(vec(e.point), mods(e));
+    } else if (active() === "anchor-point") {
+      anchorPoint.pointerDown(vec(e.point), mods(e));
     } else if (active() === "type") {
       type.pointerDown(vec(e.point), mods(e));
       emit();
@@ -178,6 +182,8 @@ export function installTools(doc: EditorDoc): ToolController {
       select.pointerDrag(vec(e.point), mods(e));
     } else if (active() === "direct-select") {
       directSelect.pointerDrag(vec(e.point), mods(e));
+    } else if (active() === "anchor-point") {
+      anchorPoint.pointerDrag(vec(e.point), mods(e));
     }
     drawOverlays();
   };
@@ -191,6 +197,9 @@ export function installTools(doc: EditorDoc): ToolController {
       commit();
     } else if (active() === "direct-select") {
       directSelect.pointerUp(vec(e.point), mods(e));
+      commit();
+    } else if (active() === "anchor-point") {
+      anchorPoint.pointerUp(vec(e.point), mods(e));
       commit();
     }
     drawOverlays();

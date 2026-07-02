@@ -70,6 +70,10 @@ export function ArtboardCanvas() {
       }
       // Don't hijack other ⌘/Ctrl combos as tool switches.
       if (e.metaKey || e.ctrlKey) return;
+      if (k === "c" && e.shiftKey) {
+        editorStore.getState().setTool("anchor-point");
+        return;
+      }
       if (k === "v") editorStore.getState().setTool("select");
       if (k === "a") editorStore.getState().setTool("direct-select");
       if (k === "p") editorStore.getState().setTool("pen");
