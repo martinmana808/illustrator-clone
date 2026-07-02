@@ -54,5 +54,7 @@ export interface ToolController {
   zoomAtClient(clientX: number, clientY: number, factor: number): void;
   panBy(dx: number, dy: number): void;
   getZoom(): number;
+  shapeArrow(key: string): void;
+  isDrawingShape(): boolean;
   onChange(cb: () => void): () => void;
 }

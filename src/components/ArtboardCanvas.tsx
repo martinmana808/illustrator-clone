@@ -154,10 +154,19 @@ export function ArtboardCanvas() {
         return;
       }
       if (e.metaKey || e.ctrlKey) return;
+      // Arrow keys adjust polygon sides / star points / corner radius while drawing.
+      if ((key === "ArrowUp" || key === "ArrowDown") && c?.isDrawingShape()) {
+        e.preventDefault();
+        c.shapeArrow(key);
+        return;
+      }
       if (k === "c" && e.shiftKey) {
         editorStore.getState().setTool("anchor-point");
         return;
       }
+      if (k === "m") editorStore.getState().setTool("rectangle");
+      if (k === "l") editorStore.getState().setTool("ellipse");
+      if (key === "\\") editorStore.getState().setTool("line");
       if (k === "v") editorStore.getState().setTool("select");
       if (k === "a") editorStore.getState().setTool("direct-select");
       if (k === "p") editorStore.getState().setTool("pen");

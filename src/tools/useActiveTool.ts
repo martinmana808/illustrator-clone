@@ -8,6 +8,7 @@ import { TypeTool } from "./type";
 import { TypeOnPathTool } from "./typeOnPath";
 import { ZoomTool } from "./zoomTool";
 import { HandTool } from "./handTool";
+import { ShapeTool, SHAPE_KINDS, type ShapeKind } from "./shapeTool";
 import { zoomAtPoint, fitBounds, clampZoom } from "@/engine/viewport";
 import { handlePoints } from "./transformBox";
 import { cursorCss } from "./penCursors";
@@ -58,6 +59,8 @@ export function installTools(doc: EditorDoc): ToolController {
   const typeOnPath = new TypeOnPathTool(doc);
   const zoomTool = new ZoomTool(doc);
   const handTool = new HandTool(doc);
+  const shapeTool = new ShapeTool(doc);
+  const isShape = (t: string): t is ShapeKind => (SHAPE_KINDS as string[]).includes(t);
   const tool = new scope.Tool();
 
   // Full-screen artboard chrome, sized to the canvas at mount.
@@ -246,6 +249,9 @@ export function installTools(doc: EditorDoc): ToolController {
       zoomTool.pointerDown(vec(e.point), mods(e));
     } else if (active() === "hand") {
       handTool.pointerDown(vec(e.point));
+    } else if (isShape(active())) {
+      shapeTool.setKind(active() as ShapeKind);
+      shapeTool.pointerDown(vec(e.point), mods(e));
     }
     drawOverlays();
   };
@@ -262,6 +268,8 @@ export function installTools(doc: EditorDoc): ToolController {
       zoomTool.pointerDrag(vec(e.point), mods(e));
     } else if (active() === "hand") {
       handTool.pointerDrag(vec(e.point));
+    } else if (isShape(active())) {
+      shapeTool.pointerDrag(vec(e.point), mods(e));
     }
     drawOverlays();
   };
@@ -284,6 +292,9 @@ export function installTools(doc: EditorDoc): ToolController {
       syncZoom();
     } else if (active() === "hand") {
       handTool.pointerUp(vec(e.point));
+    } else if (isShape(active())) {
+      shapeTool.pointerUp(vec(e.point), mods(e));
+      commit();
     }
     drawOverlays();
   };
@@ -534,6 +545,11 @@ export function installTools(doc: EditorDoc): ToolController {
       drawOverlays();
     },
     getZoom: () => scope.view.zoom,
+    shapeArrow: (key) => {
+      shapeTool.keyInput(key);
+      scope.view.update();
+    },
+    isDrawingShape: () => shapeTool.drawing,
     onChange: (cb) => {
       listeners.add(cb);
       return () => listeners.delete(cb);
