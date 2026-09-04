@@ -26,6 +26,8 @@ import type { Modifiers, Vec, ToolController } from "./types";
 import { editorStore } from "@/state/store";
 import { applyPathfinder, type PathfinderOp, type PItem } from "@/engine/pathfinder";
 import { applyFill, applyStroke, applyStrokeWidth, readStyle } from "@/engine/style";
+import { applyStrokeAlign, applyStrokeAlignVisuals } from "@/engine/strokeAlign";
+import { importSVGString, importImage, hideTemplates } from "@/engine/import";
 import {
   listLayers,
   addLayer as addLayerFn,
@@ -96,8 +98,17 @@ export function installTools(doc: EditorDoc): ToolController {
     board.strokeColor = new scope.Color(0.8, 0.8, 0.82);
     board.strokeWidth = 1 / scope.view.zoom;
     board.data.isChrome = true;
-    board.sendToBack();
-    overlays.push(board);
+    // The board is opaque, so it has to sit behind *every* layer — not just at
+    // the back of the drawing layer, or it would paint over a template image
+    // on the layer below. It gets its own throwaway layer at the very bottom,
+    // which stripOverlays() removes along with the rest of the chrome.
+    const drawingLayer = scope.project.activeLayer;
+    const boardLayer = new scope.Layer();
+    boardLayer.data.isChrome = true;
+    boardLayer.addChild(board);
+    boardLayer.sendToBack();
+    drawingLayer?.activate();
+    overlays.push(boardLayer);
   }
 
   // UI overlays (pen rubber-band, selection box + handles). These live in the
@@ -111,7 +122,16 @@ export function installTools(doc: EditorDoc): ToolController {
   const sel = () => select.selection;
   const history = new History(doc);
 
+  // Inside/outside strokes are drawn as clipped groups that must never reach
+  // the document — restoring is part of stripping, so history/save/export
+  // (which all strip first) only ever see the real paths.
+  let restoreStrokeAlign: (() => void) | null = null;
+
   function stripOverlays() {
+    if (restoreStrokeAlign) {
+      restoreStrokeAlign();
+      restoreStrokeAlign = null;
+    }
     overlays.forEach((o) => o.remove());
     overlays = [];
   }
@@ -220,6 +240,7 @@ export function installTools(doc: EditorDoc): ToolController {
   function drawOverlays() {
     stripOverlays();
     drawArtboard();
+    restoreStrokeAlign = applyStrokeAlignVisuals(doc);
     if (active() === "type") {
       if (type.isEditing) {
         drawTextSelection();
@@ -536,6 +557,11 @@ export function installTools(doc: EditorDoc): ToolController {
       scope.view.update();
       commit();
     },
+    setStrokeAlign: (a) => {
+      applyStrokeAlign(sel(), a);
+      scope.view.update();
+      commit();
+    },
     readSelectionStyle: () => readStyle(sel()),
     layers: () => listLayers(doc),
     addLayer: (name) => {
@@ -563,9 +589,19 @@ export function installTools(doc: EditorDoc): ToolController {
       scope.view.update();
       commit();
     },
-    exportSVG: () => withoutOverlays(() => downloadSVG(doc)),
+    exportSVG: () =>
+      withoutOverlays(() => {
+        // Overlays are stripped, so re-apply the aligned strokes just for the
+        // export — they serialize to real <clipPath> elements.
+        const showTemplates = hideTemplates(doc);
+        const restore = applyStrokeAlignVisuals(doc);
+        downloadSVG(doc);
+        restore();
+        showTemplates();
+      }),
     exportPNG: () =>
       withoutOverlays(() => {
+        const showTemplates = hideTemplates(doc);
         const view = scope.view;
         const sZoom = view.zoom;
         const sCenter = view.center;
@@ -578,6 +614,7 @@ export function installTools(doc: EditorDoc): ToolController {
         view.viewSize = sSize;
         view.zoom = sZoom;
         view.center = sCenter;
+        showTemplates();
         view.update();
       }),
     save: () => withoutOverlays(() => downloadDocument(doc)),
@@ -585,6 +622,18 @@ export function installTools(doc: EditorDoc): ToolController {
       loadDocument(doc, json);
       history.capture();
       afterRestore();
+    },
+    placeSVG: (svg) => {
+      withoutOverlays(() => importSVGString(doc, svg, artboardSize));
+      syncSelection();
+      commit();
+    },
+    placeImage: async (dataUrl) => {
+      // commit() strips the chrome before capturing, so there is no need to
+      // clear it up front — doing so would flash the artboard away while a
+      // large image decodes.
+      await importImage(doc, dataUrl, artboardSize);
+      commit();
     },
     typeKey: (key) => {
       if (active() === "type-on-path") typeOnPath.keyInput(key);

@@ -12,9 +12,14 @@ function findLayer(doc: EditorDoc, id: number): paper.Layer | undefined {
   return doc.project.layers.find((l) => l.id === id);
 }
 
-/** Layers with the front-most (top) first, matching UI expectations. */
+/**
+ * Layers with the front-most (top) first, matching UI expectations. The
+ * artboard chrome rides in a throwaway layer of its own, which is not the
+ * user's to see or reorder.
+ */
 export function listLayers(doc: EditorDoc): LayerInfo[] {
   return doc.project.layers
+    .filter((l) => !l.data?.isChrome)
     .map((l, i) => ({
       id: l.id,
       name: l.name || `Layer ${i + 1}`,

@@ -291,3 +291,42 @@ a {
   border-color: #6366f1;
   outline: none;
 }
+
+/* Segmented control (stroke alignment). */
+.seg {
+  display: grid;
+  grid-column: 2 / -1;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+}
+.seg-btn {
+  padding: 4px 2px;
+  font-size: 11px;
+  border: 1px solid #d4d4d8;
+  border-left-width: 0;
+  background: #fff;
+  color: #18181b;
+  cursor: pointer;
+}
+.seg-btn:first-child {
+  border-left-width: 1px;
+  border-radius: 4px 0 0 4px;
+}
+.seg-btn:last-child {
+  border-radius: 0 4px 4px 0;
+}
+.seg-btn:hover:not(:disabled) {
+  background: #e0e7ff;
+}
+.seg-btn.is-on {
+  background: #6366f1;
+  border-color: #6366f1;
+  color: #fff;
+}
+.seg-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.pf-btn.wide {
+  grid-column: 1 / -1;
+}

@@ -1,4 +1,5 @@
 import type paper from "paper";
+import { readStrokeAlign, type StrokeAlign } from "./strokeAlign";
 
 type Styleable = paper.Item & {
   fillColor: paper.Color | null;
@@ -39,6 +40,7 @@ export interface StyleSummary {
   fill: string | null;
   stroke: string | null;
   strokeWidth: number | null;
+  strokeAlign: StrokeAlign | null;
 }
 
 /** Common style across items, or null per-field when they disagree/empty. */
@@ -48,5 +50,6 @@ export function readStyle(items: paper.Item[]): StyleSummary {
     fill: common(s.map((it) => toHex(it.fillColor))),
     stroke: common(s.map((it) => toHex(it.strokeColor))),
     strokeWidth: common(s.map((it) => it.strokeWidth ?? null)),
+    strokeAlign: readStrokeAlign(items),
   };
 }

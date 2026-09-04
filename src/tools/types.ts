@@ -15,6 +15,7 @@ export type PenCursor = "pen" | "add" | "delete" | "close" | "corner" | "continu
 import type { PathfinderOp } from "@/engine/pathfinder";
 import type { LayerInfo } from "@/engine/layers";
 import type { StyleSummary } from "@/engine/style";
+import type { StrokeAlign } from "@/engine/strokeAlign";
 
 /** Handle the canvas exposes to React panels for actions on live geometry. */
 export interface ToolController {
@@ -23,6 +24,7 @@ export interface ToolController {
   setFill(css: string | null): void;
   setStroke(css: string | null): void;
   setStrokeWidth(w: number): void;
+  setStrokeAlign(a: StrokeAlign): void;
   readSelectionStyle(): StyleSummary;
   layers(): LayerInfo[];
   addLayer(name?: string): void;
@@ -34,6 +36,8 @@ export interface ToolController {
   exportPNG(): void;
   save(): void;
   open(json: string): void;
+  placeSVG(svg: string): void;
+  placeImage(dataUrl: string): Promise<void>;
   typeKey(key: string): void;
   caretMove(dir: -1 | 1, extend?: boolean): void;
   setTextContent(s: string): void;

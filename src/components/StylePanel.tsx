@@ -2,6 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { editorStore, useEditorStore } from "@/state/store";
+import { STROKE_ALIGNS, type StrokeAlign } from "@/engine/strokeAlign";
+
+const ALIGN_LABELS: Record<StrokeAlign, string> = {
+  middle: "Middle",
+  inside: "Inside",
+  outside: "Outside",
+};
 
 export function StylePanel() {
   const count = useEditorStore((s) => s.selectionCount);
@@ -10,6 +17,7 @@ export function StylePanel() {
   const [fill, setFill] = useState("#cccccc");
   const [stroke, setStroke] = useState("#000000");
   const [width, setWidth] = useState(1);
+  const [align, setAlign] = useState<StrokeAlign | null>("middle");
 
   useEffect(() => {
     if (!controller) return;
@@ -18,6 +26,7 @@ export function StylePanel() {
       if (s.fill) setFill(s.fill);
       if (s.stroke) setStroke(s.stroke);
       if (s.strokeWidth != null) setWidth(s.strokeWidth);
+      setAlign(s.strokeAlign);
     };
     sync();
     return controller.onChange(sync);
@@ -77,6 +86,25 @@ export function StylePanel() {
         />
         <span className="mono">{width}</span>
       </label>
+      <div className="style-row">
+        <span>Align</span>
+        <div className="seg">
+          {STROKE_ALIGNS.map((a) => (
+            <button
+              key={a}
+              type="button"
+              className={`seg-btn${align === a ? " is-on" : ""}`}
+              disabled={disabled}
+              onClick={() => {
+                setAlign(a);
+                c()?.setStrokeAlign(a);
+              }}
+            >
+              {ALIGN_LABELS[a]}
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
