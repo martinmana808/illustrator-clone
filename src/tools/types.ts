@@ -35,10 +35,15 @@ export interface ToolController {
   save(): void;
   open(json: string): void;
   typeKey(key: string): void;
-  caretMove(dir: -1 | 1): void;
+  caretMove(dir: -1 | 1, extend?: boolean): void;
   setTextContent(s: string): void;
   finishTyping(): void;
   isTyping(): boolean;
+  hasTextSelection(): boolean;
+  selectAllInContext(): void;
+  copySelection(): void;
+  cutSelection(): void;
+  pasteClipboard(): void;
   setFontSize(n: number): void;
   setFontFamily(f: string): void;
   readText(): { content: string; fontSize: number; fontFamily: string } | null;

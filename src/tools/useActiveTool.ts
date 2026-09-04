@@ -21,6 +21,7 @@ import { handlePoints } from "./transformBox";
 import { selectionKind } from "@/engine/selection";
 import { cursorCss } from "./penCursors";
 import { HIT_TOLERANCE } from "./constants";
+import { hitTestItem } from "./hitTest";
 import type { Modifiers, Vec, ToolController } from "./types";
 import { editorStore } from "@/state/store";
 import { applyPathfinder, type PathfinderOp, type PItem } from "@/engine/pathfinder";
@@ -36,6 +37,7 @@ import {
 import { downloadSVG, downloadPNG } from "@/engine/export";
 import { History } from "@/engine/history";
 import { downloadDocument, loadDocument } from "@/engine/persist";
+import { copyItems, pasteItems, copyText, readClipboardText } from "@/engine/clipboard";
 
 function mods(event: paper.ToolEvent | paper.KeyEvent): Modifiers {
   const k = (event.modifiers ?? {}) as Record<string, boolean>;
@@ -116,21 +118,23 @@ export function installTools(doc: EditorDoc): ToolController {
 
   let caretVisible = true;
 
+  function textMeasure(t: paper.PointText): (s: string) => number {
+    const el = scope.view.element as HTMLCanvasElement | undefined;
+    const ctx = el?.getContext?.("2d");
+    if (!ctx) return () => 0;
+    ctx.font = `${t.fontSize as number}px ${t.fontFamily}`;
+    return (s: string) => ctx.measureText(s).width;
+  }
+
   function drawTextCaret() {
     const t = type.editing;
-    if (!t || !caretVisible) return;
+    if (!t || !caretVisible || type.hasSelection) return;
     const upto = t.content.slice(0, type.caret);
     const nl = upto.lastIndexOf("\n");
     const lineText = nl >= 0 ? upto.slice(nl + 1) : upto;
     const lineIndex = (upto.match(/\n/g) || []).length;
     const fontSize = t.fontSize as number;
-    let w = 0;
-    const el = scope.view.element as HTMLCanvasElement | undefined;
-    const ctx = el?.getContext?.("2d");
-    if (ctx) {
-      ctx.font = `${fontSize}px ${t.fontFamily}`;
-      w = ctx.measureText(lineText).width;
-    }
+    const w = textMeasure(t)(lineText);
     const lineHeight = (t.leading as number) || fontSize * 1.2;
     const x = t.point.x + w;
     const baseY = t.point.y + lineIndex * lineHeight;
@@ -141,6 +145,37 @@ export function installTools(doc: EditorDoc): ToolController {
     caret.strokeColor = new scope.Color(0, 0, 0);
     caret.strokeWidth = 1;
     overlays.push(caret);
+  }
+
+  /** Translucent highlight rectangles behind the selected text range, per line. */
+  function drawTextSelection() {
+    const t = type.editing;
+    const range = type.selectionRange;
+    if (!t || !range) return;
+    const fontSize = t.fontSize as number;
+    const lineHeight = (t.leading as number) || fontSize * 1.2;
+    const measure = textMeasure(t);
+    const lines = t.content.split("\n");
+    let idx = 0;
+    for (let li = 0; li < lines.length; li++) {
+      const line = lines[li];
+      const lineStart = idx;
+      const lineEnd = idx + line.length;
+      idx = lineEnd + 1; // account for the newline
+      const start = Math.max(range.start, lineStart);
+      const end = Math.min(range.end, lineEnd);
+      if (start >= end) continue;
+      const xStart = t.point.x + measure(line.slice(0, start - lineStart));
+      const width = measure(line.slice(start - lineStart, end - lineStart));
+      const y = t.point.y + li * lineHeight;
+      const rect = new scope.Path.Rectangle({
+        point: [xStart, y - fontSize],
+        size: [width, fontSize * 1.25],
+      });
+      rect.fillColor = new scope.Color(0.15, 0.5, 0.9, 0.35);
+      rect.insertBelow(t);
+      overlays.push(rect);
+    }
   }
 
   // Illustrator-style anchors/handles for point-editing tools.
@@ -186,7 +221,10 @@ export function installTools(doc: EditorDoc): ToolController {
     stripOverlays();
     drawArtboard();
     if (active() === "type") {
-      if (type.isEditing) drawTextCaret();
+      if (type.isEditing) {
+        drawTextSelection();
+        drawTextCaret();
+      }
       scope.view.update();
       return;
     }
@@ -250,6 +288,30 @@ export function installTools(doc: EditorDoc): ToolController {
   const firstSelectedText = (): paper.PointText | null => {
     const t = select.selection.find((it) => it.className === "PointText");
     return (t as paper.PointText) ?? null;
+  };
+  // Type-on-path has no selection/insert API yet, so clipboard-ish actions
+  // are no-ops while it's mid-edit.
+  const typingOnPath = () => active() === "type-on-path" && typeOnPath.isEditing;
+  // Commit an in-progress Type edit and keep the text object selected, so
+  // exiting text mode hands the item to the Selection tool (like Illustrator).
+  const commitTextEdit = () => {
+    const kept = type.finish();
+    if (kept) {
+      doc.project.deselectAll();
+      kept.selected = true;
+    }
+    scope.view.update();
+    syncSelection();
+    commit();
+  };
+  const copySelection = () => {
+    if (typingOnPath()) return;
+    if (type.isEditing) {
+      const text = type.selectedText;
+      if (text) copyText(text);
+    } else if (sel().length > 0) {
+      copyItems(sel());
+    }
   };
 
   tool.onMouseDown = (e: paper.ToolEvent) => {
@@ -391,6 +453,15 @@ export function installTools(doc: EditorDoc): ToolController {
   const unsubTool = editorStore.subscribe(() => {
     const t = editorStore.getState().activeTool;
     if (t !== lastTool) {
+      // Leaving a text tool (toolbar click, shortcut, dblclick handoff) commits
+      // any in-progress edit — otherwise isEditing stays stale and clipboard /
+      // select-all keep routing to an abandoned text object.
+      if (lastTool === "type" && type.isEditing) {
+        commitTextEdit();
+      } else if (lastTool === "type-on-path" && typeOnPath.isEditing) {
+        typeOnPath.finish();
+        commit();
+      }
       lastTool = t;
       drawOverlays();
       const el = scope.view.element as HTMLCanvasElement | undefined;
@@ -402,9 +473,11 @@ export function installTools(doc: EditorDoc): ToolController {
     }
   });
 
-  // Blink the text caret while editing.
+  // Blink the text caret while editing. While a range is selected the caret
+  // is hidden anyway, so skip the redraw — every tick would repaint identical
+  // pixels (highlight rects, measurements) for nothing.
   const blink = setInterval(() => {
-    if (active() === "type" && type.isEditing) {
+    if (active() === "type" && type.isEditing && !type.hasSelection) {
       caretVisible = !caretVisible;
       drawOverlays();
     }
@@ -417,20 +490,16 @@ export function installTools(doc: EditorDoc): ToolController {
     const rect = canvasEl.getBoundingClientRect();
     const pt = new scope.Point(ev.clientX - rect.left, ev.clientY - rect.top);
     stripOverlays(); // don't hit-test the artboard chrome / overlays
-    const hit = scope.project.hitTest(pt, {
-      fill: true,
-      stroke: true,
-      tolerance: HIT_TOLERANCE,
-    });
-    if (hit && hit.item) {
+    const hitItem = hitTestItem(doc, pt, HIT_TOLERANCE, { fill: true, stroke: true });
+    if (hitItem) {
       scope.project.deselectAll();
-      if (hit.item.className === "PointText") {
+      if (hitItem.className === "PointText") {
         // Double-click text → jump straight into text editing.
-        type.editItem(hit.item as paper.PointText);
+        type.editItem(hitItem as paper.PointText);
         editorStore.getState().setTool("type");
         drawOverlays();
       } else {
-        (hit.item as paper.Path).fullySelected = true;
+        (hitItem as paper.Path).fullySelected = true;
         editorStore.getState().setTool("direct-select");
         editorStore.getState().setSelectionCount(1);
         drawOverlays();
@@ -524,8 +593,8 @@ export function installTools(doc: EditorDoc): ToolController {
       drawOverlays();
       emit();
     },
-    caretMove: (dir) => {
-      type.moveCaret(dir);
+    caretMove: (dir, extend = false) => {
+      type.moveCaret(dir, extend);
       caretVisible = true;
       drawOverlays();
     },
@@ -536,12 +605,66 @@ export function installTools(doc: EditorDoc): ToolController {
       emit();
     },
     finishTyping: () => {
-      if (active() === "type-on-path") typeOnPath.finish();
-      else type.finish();
-      scope.view.update();
-      commit();
+      if (active() === "type-on-path") {
+        typeOnPath.finish();
+        scope.view.update();
+        commit();
+      } else {
+        commitTextEdit();
+      }
     },
     isTyping: () => (active() === "type-on-path" ? typeOnPath.isEditing : type.isEditing),
+    hasTextSelection: () => type.hasSelection,
+    selectAllInContext: () => {
+      if (typingOnPath()) return; // type-on-path has no selection model yet
+      if (type.isEditing) {
+        type.selectAll();
+        caretVisible = true;
+        drawOverlays();
+      } else {
+        stripOverlays(); // only real content should end up selected
+        select.selectAll();
+        syncSelection();
+        drawOverlays();
+      }
+    },
+    copySelection,
+    cutSelection: () => {
+      if (typingOnPath()) return;
+      if (type.isEditing) {
+        if (!type.hasSelection) return;
+        copySelection();
+        type.deleteSelection();
+        caretVisible = true;
+        drawOverlays();
+        emit();
+      } else if (sel().length > 0) {
+        copySelection();
+        select.deleteSelection();
+        scope.view.update();
+        syncSelection();
+        commit();
+      }
+    },
+    pasteClipboard: () => {
+      if (typingOnPath()) return;
+      if (type.isEditing) {
+        readClipboardText().then((text) => {
+          if (!text) return;
+          type.insertText(text);
+          caretVisible = true;
+          drawOverlays();
+          emit();
+        });
+      } else {
+        const pasted = pasteItems(doc);
+        if (pasted.length > 0) {
+          syncSelection();
+          scope.view.update();
+          commit();
+        }
+      }
+    },
     setFontSize: (n) => {
       type.setFontSize(n);
       drawOverlays();

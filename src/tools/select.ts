@@ -10,6 +10,7 @@ import {
   type HandleName,
 } from "./transformBox";
 import { scaleItems, rotateItems, translateItems } from "@/engine/transform";
+import { hitTestItem } from "./hitTest";
 
 const ROT_ZONE = 22;
 
@@ -56,7 +57,12 @@ export class SelectTool {
   }
 
   selectAll(): void {
-    this.doc.project.activeLayer.children.forEach((c) => (c.selected = true));
+    // Skip the artboard chrome background (data.isChrome) — it lives in the
+    // active layer alongside real content but isn't selectable artwork.
+    this.doc.project.activeLayer.children.forEach((c) => {
+      if (c.data?.isChrome) return;
+      c.selected = true;
+    });
   }
 
   deleteSelection(): void {
@@ -88,26 +94,39 @@ export class SelectTool {
     }
 
     // 2) Hit an item → select and prepare to move.
-    const hit = this.doc.project.hitTest(this.pt(p), {
+    const hitItem = hitTestItem(this.doc, this.pt(p), HIT_TOLERANCE, {
       fill: true,
       stroke: true,
       segments: true,
-      tolerance: HIT_TOLERANCE,
     });
-    if (hit && hit.item) {
+    if (hitItem) {
       if (!m.shift) {
-        if (!hit.item.selected) this.clear();
-        hit.item.selected = true;
+        if (!hitItem.selected) this.clear();
+        hitItem.selected = true;
       } else {
-        hit.item.selected = !hit.item.selected;
+        hitItem.selected = !hitItem.selected;
       }
       this.mode = "move";
+      // Alt-drag moves a copy: originals stay put, the clones follow the drag.
+      if (m.alt) this.duplicateSelection();
       return;
     }
 
     // 3) Empty space → clear + marquee.
     if (!m.shift) this.clear();
     this.mode = "marquee";
+  }
+
+  /** Clone the selected items in place and move the selection to the clones. */
+  private duplicateSelection(): void {
+    const items = this.selection;
+    // selectedItems reports a selected Group and its children; clone only the
+    // top-level items or each child would be duplicated twice.
+    const top = items.filter((it) => !items.some((o) => o !== it && it.isDescendant(o)));
+    if (top.length === 0) return;
+    const clones = top.map((it) => it.clone());
+    this.doc.project.deselectAll();
+    clones.forEach((c) => (c.selected = true));
   }
 
   pointerDrag(p: Vec, _m: Modifiers = {}): void {
@@ -161,7 +180,7 @@ export class SelectTool {
       const rect = new this.doc.scope.Rectangle(this.pt(this.downPoint), this.pt(p));
       const marquee = this.marquee;
       this.doc.project.activeLayer.children.forEach((child) => {
-        if (child === marquee) return;
+        if (child === marquee || child.data?.isChrome) return;
         if (child.bounds.intersects(rect)) child.selected = true;
       });
       this.marquee.remove();

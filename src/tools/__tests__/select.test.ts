@@ -53,6 +53,39 @@ describe("SelectTool", () => {
     expect(sel.selection.length).toBe(2);
   });
 
+  it("marquee drag skips artboard chrome (data.isChrome)", () => {
+    const doc = createDocument(400, 400);
+    rect(doc, 10, 10, 40, 40);
+    const chrome = rect(doc, 0, 0, 400, 400) as unknown as paper.Path;
+    chrome.data.isChrome = true;
+    const sel = new SelectTool(doc);
+    sel.pointerDown({ x: 5, y: 5 });
+    sel.pointerDrag({ x: 60, y: 60 });
+    sel.pointerUp({ x: 60, y: 60 });
+    expect(sel.selection.length).toBe(1);
+    expect(sel.selection).not.toContain(chrome);
+  });
+
+  it("selectAll selects every item on the active layer", () => {
+    const doc = createDocument(400, 400);
+    rect(doc, 10, 10, 40, 40);
+    rect(doc, 100, 100, 40, 40);
+    const sel = new SelectTool(doc);
+    sel.selectAll();
+    expect(sel.selection.length).toBe(2);
+  });
+
+  it("selectAll skips artboard chrome (data.isChrome)", () => {
+    const doc = createDocument(400, 400);
+    rect(doc, 10, 10, 40, 40);
+    const chrome = rect(doc, 0, 0, 400, 400) as unknown as paper.Path;
+    chrome.data.isChrome = true;
+    const sel = new SelectTool(doc);
+    sel.selectAll();
+    expect(sel.selection.length).toBe(1);
+    expect(sel.selection).not.toContain(chrome);
+  });
+
   it("deleteSelection removes selected items", () => {
     const doc = createDocument(400, 400);
     rect(doc, 10, 10, 40, 40);
@@ -61,6 +94,41 @@ describe("SelectTool", () => {
     sel.pointerUp({ x: 20, y: 20 });
     sel.deleteSelection();
     expect(doc.project.activeLayer.children.length).toBe(0);
+  });
+});
+
+describe("SelectTool alt-drag duplicate", () => {
+  it("alt-drag moves a copy and leaves the original in place", () => {
+    const doc = createDocument(400, 400);
+    const r = rect(doc, 50, 50, 40, 40) as unknown as paper.Path;
+    const sel = new SelectTool(doc);
+    sel.pointerDown({ x: 60, y: 60 }, { alt: true });
+    sel.pointerDrag({ x: 110, y: 110 }, { alt: true });
+    sel.pointerUp({ x: 110, y: 110 }, { alt: true });
+
+    expect(doc.project.activeLayer.children.length).toBe(2);
+    // Original stayed put.
+    expect(r.bounds.left).toBeCloseTo(50, 3);
+    expect(r.bounds.top).toBeCloseTo(50, 3);
+    // The clone is selected and moved by the drag delta.
+    expect(sel.selection.length).toBe(1);
+    expect(sel.selection[0]).not.toBe(r);
+    expect(sel.selection[0].bounds.left).toBeCloseTo(100, 3);
+  });
+
+  it("alt-drag of a selected group duplicates it once (no per-child copies)", () => {
+    const doc = createDocument(400, 400);
+    const g = new doc.scope.Group([
+      rect(doc, 50, 50, 20, 20) as unknown as paper.Path,
+      rect(doc, 80, 80, 20, 20) as unknown as paper.Path,
+    ]);
+    g.selected = true;
+    const sel = new SelectTool(doc);
+    sel.pointerDown({ x: 60, y: 60 }, { alt: true });
+    sel.pointerUp({ x: 60, y: 60 }, { alt: true });
+    // One group became two groups — not two groups plus stray child copies.
+    expect(doc.project.activeLayer.children.length).toBe(2);
+    expect(doc.project.activeLayer.children.every((c) => c.className === "Group")).toBe(true);
   });
 });
 

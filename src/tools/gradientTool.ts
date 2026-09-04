@@ -2,6 +2,7 @@ import type paper from "paper";
 import type { EditorDoc } from "@/engine/document";
 import type { Vec, Modifiers } from "./types";
 import { HIT_TOLERANCE } from "./constants";
+import { hitTestItem } from "./hitTest";
 import { applyGradient, readGradient, defaultGradient, type GradientDesc } from "@/engine/gradients";
 
 /**
@@ -31,12 +32,7 @@ export class GradientTool {
     this.doc.scope.activate();
     let target = this.doc.project.selectedItems[0] as paper.Item | undefined;
     if (!target) {
-      const hit = this.doc.project.hitTest(this.pt(p), {
-        fill: true,
-        stroke: true,
-        tolerance: HIT_TOLERANCE,
-      });
-      target = hit?.item ?? undefined;
+      target = hitTestItem(this.doc, this.pt(p), HIT_TOLERANCE) ?? undefined;
     }
     if (!target) return;
     this.target = target;
